@@ -5,7 +5,7 @@ class NotificationManager {
     constructor() {
         this.notifications = [];
         this.permission = 'default';
-        this.init();
+        // this.init(); // Ne pas appeler init automatiquement pour les tests
     }
 
     async init() {

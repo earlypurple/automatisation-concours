@@ -1,4 +1,96 @@
 const puppeteer = require('puppeteer');
+const https = require('https');
+
+async function handleCaptcha(page, config, log) {
+    const captchaConfig = config.captcha_solver;
+    if (!captchaConfig || !captchaConfig.enabled) {
+        log('info', 'Solveur de CAPTCHA désactivé.');
+        const hasCaptcha = await page.$('.g-recaptcha');
+        return !hasCaptcha; // Continuer seulement si aucun CAPTCHA n'est présent
+    }
+
+    const recaptcha = await page.$('.g-recaptcha');
+    if (!recaptcha) {
+        log('info', 'Aucun reCAPTCHA V2 détecté.');
+        return true;
+    }
+
+    log('info', 'reCAPTCHA V2 détecté. Démarrage de la résolution...');
+    const sitekey = await page.evaluate(el => el.getAttribute('data-sitekey'), recaptcha);
+    if (!sitekey) throw new Error('Impossible de trouver le sitekey du reCAPTCHA.');
+
+    const apiKey = captchaConfig.api_key;
+    if (!apiKey) throw new Error('Clé API du solveur de CAPTCHA non configurée.');
+
+    // 1. Envoyer la demande de résolution
+    const requestId = await requestCaptcha(apiKey, sitekey, page.url(), log);
+    log('info', `CAPTCHA soumis au solveur. ID de la demande : ${requestId}`);
+
+    // 2. Attendre le résultat
+    await page.waitForTimeout(15000); // Attente initiale de 15s
+    const token = await pollForResult(apiKey, requestId, log);
+    log('info', 'Token CAPTCHA reçu !');
+
+    // 3. Injecter le token
+    await page.evaluate((token) => {
+        const textarea = document.querySelector('textarea[name="g-recaptcha-response"]');
+        if (textarea) textarea.value = token;
+    }, token);
+
+    log('info', 'Token injecté dans la page.');
+    return true;
+}
+
+function requestCaptcha(apiKey, sitekey, pageUrl, log) {
+    return new Promise((resolve, reject) => {
+        const url = `https://2captcha.com/in.php?key=${apiKey}&method=userrecaptcha&googlekey=${sitekey}&pageurl=${pageUrl}&json=1`;
+        https.get(url, (res) => {
+            let data = '';
+            res.on('data', (chunk) => { data += chunk; });
+            res.on('end', () => {
+                const response = JSON.parse(data);
+                if (response.status !== 1) {
+                    return reject(new Error(`Erreur de l'API 2Captcha : ${response.request}`));
+                }
+                resolve(response.request);
+            });
+        }).on('error', (err) => reject(err));
+    });
+}
+
+function pollForResult(apiKey, requestId, log) {
+    return new Promise((resolve, reject) => {
+        const url = `https://2captcha.com/res.php?key=${apiKey}&action=get&id=${requestId}&json=1`;
+        const maxAttempts = 20;
+        let attempt = 0;
+
+        const interval = setInterval(() => {
+            if (attempt++ >= maxAttempts) {
+                clearInterval(interval);
+                return reject(new Error('Le solveur de CAPTCHA a mis trop de temps à répondre.'));
+            }
+
+            log('info', `Tentative de récupération du token CAPTCHA (${attempt}/${maxAttempts})...`);
+            https.get(url, (res) => {
+                let data = '';
+                res.on('data', (chunk) => { data += chunk; });
+                res.on('end', () => {
+                    const response = JSON.parse(data);
+                    if (response.status === 1) {
+                        clearInterval(interval);
+                        resolve(response.request);
+                    } else if (response.request !== 'CAPCHA_NOT_READY') {
+                        clearInterval(interval);
+                        reject(new Error(`Erreur de l'API 2Captcha : ${response.request}`));
+                    }
+                });
+            }).on('error', (err) => {
+                clearInterval(interval);
+                reject(err);
+            });
+        }, 5000); // Poll every 5 seconds
+    });
+}
 
 async function fillForm(url, userData, config = {}) {
     let browser;
@@ -38,6 +130,12 @@ async function fillForm(url, userData, config = {}) {
 
         log('info', `Navigation vers ${url}`);
         await page.goto(url, { waitUntil: 'networkidle2' });
+
+        // Gestion du CAPTCHA
+        const canContinue = await handleCaptcha(page, config, log);
+        if (!canContinue) {
+            throw new Error('Un CAPTCHA a été détecté et n\'a pas pu être résolu.');
+        }
 
         // More advanced field detection
         await fillField(page, ['input[name*="name" i]', 'input[placeholder*="name" i]', 'input[aria-label*="name" i]'], userData.name);

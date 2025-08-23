@@ -40,7 +40,14 @@
             <button id="notifications-btn" class="btn btn-warning">🔔 Alertes</button>
             <button id="analytics-btn" class="btn btn-secondary">📈 Analytics</button>
         </div>
-        <input class="search-bar" placeholder="🔍 Rechercher…">
+        <div class="search-sort-container">
+            <input class="search-bar" placeholder="🔍 Rechercher…">
+            <select id="sort-select" class="sort-select">
+                <option value="score">Trier par Score</option>
+                <option value="value">Trier par Valeur</option>
+                <option value="date">Trier par Date</option>
+            </select>
+        </div>
         <div class="filters">
             <div class="filter-tag active" data-type="all">Tous</div>
             <div class="filter-tag" data-type="echantillons">Échantillons</div>

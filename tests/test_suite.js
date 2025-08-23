@@ -80,6 +80,7 @@ describe('Surveillance Gratuite Pro - Tests', () => {
         
         beforeEach(() => {
             notifications = new NotificationManager();
+            notifications.permission = 'granted'; // Manually set permission for test
         });
 
         it('devrait gérer correctement les notifications', () => {

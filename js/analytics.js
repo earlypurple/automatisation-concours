@@ -10,7 +10,7 @@ class Analytics {
             totalValue: 0,
             categories: {}
         };
-        this.init();
+        // this.init(); // Ne pas appeler init automatiquement pour les tests
     }
 
     init() {
