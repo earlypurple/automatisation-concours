@@ -2,12 +2,13 @@ class SettingsApp {
     constructor() {
         this.profiles = [];
         this.proxies = [];
-        this.init();
+
     }
 
     async init() {
         this.cacheDOMElements();
         this.setupEventListeners();
+        await this.loadGeneralSettings();
         await this.loadProfiles();
         await this.loadProxies();
     }
@@ -30,6 +31,8 @@ class SettingsApp {
         this.addProxyBtn = document.getElementById('add-proxy-btn');
         this.proxyList = document.getElementById('proxy-list');
 
+
+     
         this.toast = document.getElementById('toast');
     }
 
@@ -38,6 +41,9 @@ class SettingsApp {
         this.addProfileBtn.addEventListener('click', () => this.showProfileForm(null));
         this.saveProfileBtn.addEventListener('click', () => this.saveProfile());
         this.cancelProfileBtn.addEventListener('click', () => this.hideProfileForm());
+
+        // General settings listener
+        this.saveGeneralBtn.addEventListener('click', () => this.saveGeneralSettings());
 
         this.profilesList.addEventListener('click', (e) => {
             if (e.target.matches('.edit-btn')) {
@@ -234,6 +240,7 @@ class SettingsApp {
         }
     }
 
+<
     showToast(message, type = 'success') {
         this.toast.textContent = message;
         this.toast.className = `toast show ${type}`;

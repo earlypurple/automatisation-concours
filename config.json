@@ -14,7 +14,12 @@
     "notifications": {
         "desktop": true,
         "browser": true,
-        "min_priority": 4
+        "min_priority": 4,
+        "telegram": {
+            "enabled": false,
+            "bot_token": "",
+            "chat_id": ""
+        }
     },
     "filters": {
         "min_value": 10,

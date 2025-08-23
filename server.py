@@ -196,6 +196,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             proxies = config_handler.get_proxies()
             self.send_json_response(200, proxies)
 
+
         else:
             self.send_json_response(404, {'error': 'Not Found'})
 
