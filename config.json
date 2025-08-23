@@ -21,10 +21,28 @@
         "categories": ["echantillons", "concours", "cashback", "tests"],
         "excluded_domains": []
     },
-    "auto_participation": {
+    "auto__participation": {
         "enabled": true,
         "max_per_day": 50,
         "safe_mode": true
+    },
+    "puppeteer": {
+        "headless": true,
+        "log_level": "info"
+    },
+    "proxies": {
+        "enabled": false,
+        "rotation_mode": "random",
+        "list": [
+            {
+                "server": "http://proxy1.example.com:8080",
+                "username": "user1",
+                "password": "password1"
+            },
+            {
+                "server": "http://proxy2.example.com:8080"
+            }
+        ]
     },
     "export": {
         "auto_backup": true,
