@@ -284,9 +284,167 @@ class Analytics {
         }
     }
 
-    convertToCSV(data) {
-        // Logique de conversion en CSV
-        // (Code de conversion ici)
+    convertToCSV(data, options = {}) {
+        // Options par défaut
+        const defaultOptions = {
+            delimiter: ',',
+            includeHeaders: true,
+            dateFormat: 'ISO', // ISO, FR, US
+            encoding: 'UTF-8',
+            escapeQuotes: true
+        };
+        
+        const config = { ...defaultOptions, ...options };
+        
+        if (!data || data.length === 0) {
+            return 'Aucune donnée à exporter';
+        }
+
+        let headers, rows;
+        
+        if (data.participations && Array.isArray(data.participations)) {
+            // Export des participations avec plus de détails
+            headers = [
+                'Date', 'Heure', 'Titre', 'Catégorie', 'Valeur', 
+                'Statut', 'Tentatives', 'Durée (ms)', 'URL', 'ID'
+            ];
+            rows = data.participations.map(p => [
+                this.formatDate(p.timestamp, config.dateFormat),
+                this.formatTime(p.timestamp),
+                this.escapeCSV(p.title || '', config),
+                this.escapeCSV(p.category || '', config),
+                p.value || 0,
+                p.success ? 'Succès' : 'Échec',
+                p.attempts || 1,
+                p.duration || 0,
+                this.escapeCSV(p.url || '', config),
+                p.id || ''
+            ]);
+        } else if (data.analytics && typeof data.analytics === 'object') {
+            // Export des analytics avec statistiques détaillées
+            headers = ['Période', 'Participations', 'Succès', 'Taux Succès (%)', 'Valeur Totale'];
+            rows = Object.entries(data.analytics).map(([period, stats]) => [
+                this.escapeCSV(period, config),
+                stats.participations || 0,
+                stats.successes || 0,
+                stats.participations > 0 ? ((stats.successes / stats.participations) * 100).toFixed(2) : 0,
+                stats.totalValue || 0
+            ]);
+        } else if (data.categories && typeof data.categories === 'object') {
+            // Export par catégories
+            headers = ['Catégorie', 'Participations', 'Succès', 'Valeur Moyenne', 'Dernière Participation'];
+            rows = Object.entries(data.categories).map(([category, stats]) => [
+                this.escapeCSV(category, config),
+                stats.count || 0,
+                stats.successes || 0,
+                stats.count > 0 ? (stats.totalValue / stats.count).toFixed(2) : 0,
+                stats.lastParticipation ? this.formatDate(stats.lastParticipation, config.dateFormat) : 'Jamais'
+            ]);
+        } else if (Array.isArray(data)) {
+            // Export générique d'un array d'objets amélioré
+            if (data.length > 0) {
+                headers = Object.keys(data[0]);
+                rows = data.map(item => 
+                    headers.map(header => {
+                        const value = item[header];
+                        if (value instanceof Date) {
+                            return this.formatDate(value.toISOString(), config.dateFormat);
+                        }
+                        if (typeof value === 'string') {
+                            return this.escapeCSV(value, config);
+                        }
+                        if (typeof value === 'object' && value !== null) {
+                            return this.escapeCSV(JSON.stringify(value), config);
+                        }
+                        return value !== null && value !== undefined ? value : '';
+                    })
+                );
+            } else {
+                return 'Aucune donnée à exporter';
+            }
+        } else {
+            // Export d'un objet de statistiques
+            headers = ['Métrique', 'Valeur', 'Type'];
+            rows = Object.entries(data).map(([key, value]) => [
+                this.escapeCSV(key, config),
+                typeof value === 'object' && value !== null ? this.escapeCSV(JSON.stringify(value), config) : value,
+                typeof value
+            ]);
+        }
+
+        // Construction du CSV
+        const csvParts = [];
+        
+        if (config.includeHeaders) {
+            csvParts.push(headers.join(config.delimiter));
+        }
+        
+        csvParts.push(...rows.map(row => row.join(config.delimiter)));
+        
+        const csvContent = csvParts.join('\n');
+        
+        // Ajout du BOM pour UTF-8 si nécessaire
+        if (config.encoding === 'UTF-8-BOM') {
+            return '\uFEFF' + csvContent;
+        }
+        
+        return csvContent;
+    }
+
+    formatDate(dateString, format = 'ISO') {
+        const date = new Date(dateString);
+        
+        switch (format) {
+            case 'FR':
+                return date.toLocaleDateString('fr-FR');
+            case 'US':
+                return date.toLocaleDateString('en-US');
+            case 'ISO':
+            default:
+                return date.toISOString().split('T')[0];
+        }
+    }
+
+    formatTime(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleTimeString('fr-FR');
+    }
+
+    escapeCSV(value, config) {
+        if (typeof value !== 'string') return value;
+        
+        const stringValue = String(value);
+        
+        // Échapper les guillemets si nécessaire
+        if (config.escapeQuotes && stringValue.includes('"')) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        
+        // Ajouter des guillemets si le contenu contient le délimiteur ou des retours à la ligne
+        if (stringValue.includes(config.delimiter) || stringValue.includes('\n') || stringValue.includes('\r')) {
+            return `"${stringValue}"`;
+        }
+        
+        return stringValue;
+    }
+
+    exportToCSV(data, filename, options = {}) {
+        const csvContent = this.convertToCSV(data, options);
+        
+        // Utiliser Utils pour télécharger le fichier
+        if (typeof Utils !== 'undefined' && Utils.downloadFile) {
+            const contentType = options.encoding === 'UTF-8-BOM' 
+                ? 'text/csv;charset=utf-8' 
+                : 'text/csv';
+            
+            Utils.downloadFile(csvContent, filename, contentType);
+        } else {
+            // Fallback pour environnement Node.js
+            console.log('CSV Content:');
+            console.log(csvContent);
+        }
+        
+        return csvContent;
     }
 }
 

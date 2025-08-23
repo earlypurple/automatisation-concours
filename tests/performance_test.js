@@ -1,6 +1,6 @@
 // tests/performance_test.js
 
-const AutoParticipation = require('../js/autoParticipation.js');
+const AutoParticipationManager = require('../js/autoParticipation.js');
 const Analytics = require('../js/analytics.js');
 
 async function runPerformanceTest() {
