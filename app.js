@@ -10,6 +10,7 @@ class SurveillanceApp {
 
     async init() {
         await this.loadConfig();
+        await this.loadSettings(); // Charger les paramètres utilisateur
         this.setupEventListeners();
         this.setupPWA();
         this.startAutoUpdate();
@@ -22,6 +23,17 @@ class SurveillanceApp {
             this.config = await response.json();
         } catch (error) {
             console.error('Erreur chargement config:', error);
+        }
+    }
+
+    async loadSettings() {
+        try {
+            const response = await fetch('/api/settings');
+            const settings = await response.json();
+            this.userData = settings.userData;
+        } catch (error) {
+            console.error('Erreur chargement des paramètres utilisateur:', error);
+            this.userData = {}; // Initialiser avec un objet vide en cas d'erreur
         }
     }
 
@@ -250,10 +262,8 @@ class SurveillanceApp {
     }
 
     async participate(id, url) {
-        const userData = this.getUserData();
-        if (!userData.email) {
-            this.showNotification('Veuillez configurer vos informations utilisateur.', 'error');
-            // Idéalement, ouvrir un modal de configuration ici
+        if (!this.userData || !this.userData.email) {
+            this.showNotification('Veuillez configurer vos informations utilisateur dans les paramètres.', 'error');
             return;
         }
 
@@ -261,7 +271,7 @@ class SurveillanceApp {
             const response = await fetch('/api/participate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: parseInt(id), url, userData })
+                body: JSON.stringify({ id: parseInt(id), url, userData: this.userData })
             });
 
             const result = await response.json();
@@ -275,16 +285,6 @@ class SurveillanceApp {
         } catch (error) {
             this.showNotification(`Erreur de participation: ${error.message}`, 'error');
         }
-    }
-
-    getUserData() {
-        // Pour l'instant, hardcodé. Idéalement, lu depuis localStorage ou un formulaire.
-        return {
-            name: "Jean Dupont",
-            email: "jean.dupont.test@email.com",
-            phone: "0123456789",
-            address: "123 Rue de Paris, 75001 Paris"
-        };
     }
 
     toggleParticipation(checkbox) {

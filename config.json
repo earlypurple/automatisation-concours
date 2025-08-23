@@ -32,28 +32,14 @@
     },
     "proxies": {
         "enabled": false,
-        "rotation_mode": "random",
-        "list": [
-            {
-                "server": "http://proxy1.example.com:8080",
-                "username": "user1",
-                "password": "password1"
-            },
-            {
-                "server": "http://proxy2.example.com:8080"
-            }
-        ]
+        "rotation_mode": "random"
     },
     "captcha_solver": {
         "enabled": false,
-        "api_key": "",
         "provider": "2captcha"
     },
     "email_handler": {
         "enabled": false,
-        "host": "imap.example.com",
-        "user": "user@example.com",
-        "password": "password",
         "check_interval_minutes": 15
     },
     "export": {

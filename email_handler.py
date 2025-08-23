@@ -7,6 +7,10 @@ import re
 import requests
 import database as db
 from email.header import decode_header
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def find_confirmation_link(body):
     """
@@ -39,14 +43,22 @@ def process_pending_confirmations(config):
         print("Aucune confirmation en attente.")
         return
 
-    email_config = config.get('email_handler', {})
-    if not email_config.get('enabled'):
-        print("Le gestionnaire d'e-mails est désactivé.")
+    email_enabled = config.get('email_handler', {}).get('enabled', False)
+    if not email_enabled:
+        print("Le gestionnaire d'e-mails est désactivé dans config.json.")
+        return
+
+    email_host = os.getenv("EMAIL_HOST")
+    email_user = os.getenv("EMAIL_USER")
+    email_password = os.getenv("EMAIL_PASSWORD")
+
+    if not all([email_host, email_user, email_password]):
+        print("Les variables d'environnement pour l'e-mail ne sont pas configurées.")
         return
 
     try:
-        mail = imaplib.IMAP4_SSL(email_config['host'])
-        mail.login(email_config['user'], email_config['password'])
+        mail = imaplib.IMAP4_SSL(email_host)
+        mail.login(email_user, email_password)
 
         for opp in pending_opps:
             details = json.loads(opp['confirmation_details'])

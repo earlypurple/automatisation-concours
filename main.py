@@ -23,8 +23,14 @@ def run_scheduler(surv_instance):
 def run_email_scheduler(config):
     """Runs the scheduled tasks for email checking."""
     email_config = config.get('email_handler', {})
+    if not email_config.get('enabled'):
+        print("Le gestionnaire d'e-mails est désactivé dans la configuration, le planificateur ne démarrera pas.")
+        return
     interval = email_config.get('check_interval_minutes', 15)
+
+    # Pass the entire config to the scheduler job
     schedule.every(interval).minutes.do(email_handler.process_pending_confirmations, config=config)
+
     print("Planificateur d'e-mails démarré.")
     while True:
         schedule.run_pending()
