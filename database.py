@@ -19,8 +19,21 @@ def db_cursor():
         conn.close()
 
 def init_db():
-    """Initializes the database and creates the table if it doesn't exist."""
+    """Initializes the database and creates/updates tables for multi-account support."""
     with db_cursor() as cur:
+        # --- Table des Profils ---
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                email TEXT,
+                user_data TEXT, -- JSON for form filling
+                settings TEXT, -- JSON for profile-specific settings
+                is_active BOOLEAN DEFAULT 0
+            )
+        ''')
+
+        # --- Table des Opportunités (avec migration) ---
         cur.execute('''
             CREATE TABLE IF NOT EXISTS opportunities (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,15 +55,51 @@ def init_db():
                 confirmation_details TEXT
             )
         ''')
+        # Add profile_id column if it doesn't exist for migration
+        cur.execute("PRAGMA table_info(opportunities)")
+        if 'profile_id' not in [row['name'] for row in cur.fetchall()]:
+            cur.execute('ALTER TABLE opportunities ADD COLUMN profile_id INTEGER REFERENCES profiles(id)')
+
+        # --- Table de l'Historique (avec migration) ---
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS participation_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                opportunity_id INTEGER NOT NULL,
+                participation_date TEXT NOT NULL,
+                status TEXT NOT NULL,
+                FOREIGN KEY (opportunity_id) REFERENCES opportunities (id)
+            )
+        ''')
+        # Add profile_id column if it doesn't exist for migration
+        cur.execute("PRAGMA table_info(participation_history)")
+        if 'profile_id' not in [row['name'] for row in cur.fetchall()]:
+            cur.execute('ALTER TABLE participation_history ADD COLUMN profile_id INTEGER REFERENCES profiles(id)')
+
+        # --- Créer un profil par défaut si aucun n'existe ---
+        cur.execute("SELECT COUNT(*) FROM profiles")
+        if cur.fetchone()[0] == 0:
+            default_user_data = json.dumps({
+                "name": "John Doe",
+                "email": "johndoe@example.com",
+                "phone": "1234567890",
+                "address": "123 Main St"
+            })
+            cur.execute(
+                "INSERT INTO profiles (name, user_data, is_active) VALUES (?, ?, ?)",
+                ('Défaut', default_user_data, 1)
+            )
+            # Link existing data to the default profile
+            cur.execute("UPDATE opportunities SET profile_id = 1 WHERE profile_id IS NULL")
+            cur.execute("UPDATE participation_history SET profile_id = 1 WHERE profile_id IS NULL")
 
 import datetime
 
-def add_opportunity(opp):
-    """Adds a new opportunity to the database."""
+def add_opportunity(opp, profile_id):
+    """Adds a new opportunity to the database for a specific profile."""
     with db_cursor() as cur:
         cur.execute('''
-            INSERT INTO opportunities (site, title, description, url, type, priority, value, auto_fill, detected_at, expires_at, status, entries_count, time_left, score)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            INSERT INTO opportunities (site, title, description, url, type, priority, value, auto_fill, detected_at, expires_at, status, entries_count, time_left, score, profile_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
         ''', (
             opp['site'],
             opp['title'],
@@ -64,7 +113,8 @@ def add_opportunity(opp):
             opp['expires_at'],
             'pending', # Initial status
             opp.get('entries_count'),
-            opp.get('time_left')
+            opp.get('time_left'),
+            profile_id
         ))
 
 def update_opportunity_status(opportunity_id, status, log_message=None):
@@ -93,24 +143,24 @@ def set_confirmation_pending(opportunity_id, domain):
         )
 
 
-def clear_opportunities():
-    """Clears all opportunities from the database."""
+def clear_opportunities(profile_id):
+    """Clears all opportunities from the database for a specific profile."""
     with db_cursor() as cur:
-        cur.execute('DELETE FROM opportunities')
+        cur.execute('DELETE FROM opportunities WHERE profile_id = ?', (profile_id,))
 
 import selection_logic
 
-def update_all_scores():
-    """Calculates and updates the score for all opportunities."""
+def update_all_scores(profile_id):
+    """Calculates and updates the score for all opportunities of a specific profile."""
     with db_cursor() as cur:
-        cur.execute("SELECT * FROM opportunities")
+        cur.execute("SELECT * FROM opportunities WHERE profile_id = ?", (profile_id,))
         opportunities = [dict(row) for row in cur.fetchall()]
 
         for opp in opportunities:
             score = selection_logic.calculate_score(opp)
             cur.execute("UPDATE opportunities SET score = ? WHERE id = ?", (score, opp['id']))
 
-        print(f"Scores updated for {len(opportunities)} opportunities.")
+        print(f"Scores updated for {len(opportunities)} opportunities for profile {profile_id}.")
 
 def get_opportunity_by_id(opportunity_id):
     """Fetches a single opportunity by its ID."""
@@ -119,10 +169,104 @@ def get_opportunity_by_id(opportunity_id):
         row = cur.fetchone()
         return dict(row) if row else None
 
-def get_opportunities():
-    """Fetches all opportunities from the database."""
+def get_opportunities(profile_id):
+    """Fetches all opportunities from the database for a specific profile."""
     with db_cursor() as cur:
-        cur.execute('SELECT * FROM opportunities ORDER BY score DESC, priority DESC, value DESC')
+        cur.execute('SELECT * FROM opportunities WHERE profile_id = ? ORDER BY score DESC, priority DESC, value DESC', (profile_id,))
         rows = cur.fetchall()
-        # Convert rows to dictionaries
         return [dict(row) for row in rows]
+
+def add_participation_history(opportunity_id, status, profile_id):
+    """Adds a record to the participation history for a specific profile."""
+    with db_cursor() as cur:
+        cur.execute('''
+            INSERT INTO participation_history (opportunity_id, participation_date, status, profile_id)
+            VALUES (?, ?, ?, ?)
+        ''', (opportunity_id, datetime.datetime.now().isoformat(), status, profile_id))
+
+def get_participation_history(profile_id):
+    """Fetches the participation history with opportunity details for a specific profile."""
+    with db_cursor() as cur:
+        cur.execute('''
+            SELECT
+                h.status as participation_status,
+                o.*
+            FROM participation_history h
+            JOIN opportunities o ON h.opportunity_id = o.id
+            WHERE o.profile_id = ?
+        ''', (profile_id,))
+        rows = cur.fetchall()
+        return [dict(row) for row in rows]
+
+# --- Fonctions de gestion des profils ---
+
+def get_profiles():
+    """Récupère tous les profils."""
+    with db_cursor() as cur:
+        cur.execute("SELECT * FROM profiles")
+        return [dict(row) for row in cur.fetchall()]
+
+def get_active_profile():
+    """Récupère le profil actif."""
+    with db_cursor() as cur:
+        cur.execute("SELECT * FROM profiles WHERE is_active = 1")
+        row = cur.fetchone()
+        if not row: # Si aucun n'est actif, retourne le premier
+            cur.execute("SELECT * FROM profiles ORDER BY id LIMIT 1")
+            row = cur.fetchone()
+        return dict(row) if row else None
+
+def set_active_profile(profile_id):
+    """Définit le profil actif."""
+    with db_cursor() as cur:
+        cur.execute("UPDATE profiles SET is_active = 0")
+        cur.execute("UPDATE profiles SET is_active = 1 WHERE id = ?", (profile_id,))
+
+def create_profile(name, email=None, user_data=None, settings=None):
+    """Crée un nouveau profil."""
+    with db_cursor() as cur:
+        cur.execute(
+            "INSERT INTO profiles (name, email, user_data, settings) VALUES (?, ?, ?, ?)",
+            (name, email, json.dumps(user_data or {}), json.dumps(settings or {}))
+        )
+        return cur.lastrowid
+
+def update_profile(profile_id, name=None, email=None, user_data=None, settings=None):
+    """Met à jour un profil existant."""
+    with db_cursor() as cur:
+        if name:
+            cur.execute("UPDATE profiles SET name = ? WHERE id = ?", (name, profile_id))
+        if email:
+            cur.execute("UPDATE profiles SET email = ? WHERE id = ?", (email, profile_id))
+        if user_data:
+            cur.execute("UPDATE profiles SET user_data = ? WHERE id = ?", (json.dumps(user_data), profile_id))
+        if settings:
+            cur.execute("UPDATE profiles SET settings = ? WHERE id = ?", (json.dumps(settings), profile_id))
+
+def delete_profile(profile_id):
+    """Supprime un profil et les données associées."""
+    with db_cursor() as cur:
+        # Ne pas supprimer le dernier profil
+        cur.execute("SELECT COUNT(*) FROM profiles")
+        if cur.fetchone()[0] <= 1:
+            raise ValueError("Impossible de supprimer le dernier profil.")
+
+        # Vérifier si le profil à supprimer est actif
+        cur.execute("SELECT is_active FROM profiles WHERE id = ?", (profile_id,))
+        is_deleting_active = cur.fetchone()[0]
+
+        # Supprimer les données associées
+        cur.execute("DELETE FROM opportunities WHERE profile_id = ?", (profile_id,))
+        cur.execute("DELETE FROM participation_history WHERE profile_id = ?", (profile_id,))
+
+        # Supprimer le profil
+        cur.execute("DELETE FROM profiles WHERE id = ?", (profile_id,))
+
+        # Si le profil supprimé était l'actif, en activer un autre
+        if is_deleting_active:
+            cur.execute("SELECT id FROM profiles ORDER BY id LIMIT 1")
+            first_profile = cur.fetchone()
+            if first_profile:
+                # Utiliser le même curseur pour activer le nouveau profil
+                cur.execute("UPDATE profiles SET is_active = 0")
+                cur.execute("UPDATE profiles SET is_active = 1 WHERE id = ?", (first_profile['id'],))

@@ -1,88 +1,159 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const saveBtn = document.getElementById('save-btn');
-    const toast = document.getElementById('toast');
+class SettingsApp {
+    constructor() {
+        this.profiles = [];
+        this.init();
+    }
 
-    const settings = {
-        userName: document.getElementById('userName'),
-        userEmail: document.getElementById('userEmail'),
-        desktopNotifications: document.getElementById('desktopNotifications'),
-        browserNotifications: document.getElementById('browserNotifications'),
-        minPriority: document.getElementById('minPriority'),
-        scrapingInterval: document.getElementById('scrapingInterval'),
-        autoParticipationEnabled: document.getElementById('autoParticipationEnabled'),
-        maxPerDay: document.getElementById('maxPerDay'),
-    };
+    async init() {
+        this.cacheDOMElements();
+        this.setupEventListeners();
+        await this.loadProfiles();
+    }
 
-    async function loadSettings() {
+    cacheDOMElements() {
+        this.profilesList = document.getElementById('profiles-list');
+        this.addProfileBtn = document.getElementById('add-profile-btn');
+        this.profileFormContainer = document.getElementById('profile-form-container');
+        this.profileFormTitle = document.getElementById('profile-form-title');
+        this.profileIdInput = document.getElementById('profileId');
+        this.profileNameInput = document.getElementById('profileName');
+        this.profileEmailInput = document.getElementById('profileEmail');
+        this.profileUserDataInput = document.getElementById('profileUserData');
+        this.saveProfileBtn = document.getElementById('save-profile-btn');
+        this.cancelProfileBtn = document.getElementById('cancel-profile-btn');
+        this.toast = document.getElementById('toast');
+    }
+
+    setupEventListeners() {
+        this.addProfileBtn.addEventListener('click', () => this.showProfileForm(null));
+        this.saveProfileBtn.addEventListener('click', () => this.saveProfile());
+        this.cancelProfileBtn.addEventListener('click', () => this.hideProfileForm());
+
+        this.profilesList.addEventListener('click', (e) => {
+            if (e.target.matches('.edit-btn')) {
+                const id = e.target.getAttribute('data-id');
+                const profile = this.profiles.find(p => p.id == id);
+                this.showProfileForm(profile);
+            }
+            if (e.target.matches('.delete-btn')) {
+                const id = e.target.getAttribute('data-id');
+                const name = e.target.getAttribute('data-name');
+                if (confirm(`Êtes-vous sûr de vouloir supprimer le profil "${name}" ? Toutes les données associées seront perdues.`)) {
+                    this.deleteProfile(id);
+                }
+            }
+        });
+    }
+
+    async loadProfiles() {
         try {
-            const response = await fetch('/api/settings');
-            const data = await response.json();
-
-            // User Data
-            settings.userName.value = data.userData.name;
-            settings.userEmail.value = data.userData.email;
-
-            // Config Data
-            settings.desktopNotifications.checked = data.config.notifications.desktop;
-            settings.browserNotifications.checked = data.config.notifications.browser;
-            settings.minPriority.value = data.config.notifications.min_priority;
-            settings.scrapingInterval.value = data.config.scraping.interval_minutes;
-            settings.autoParticipationEnabled.checked = data.config.auto__participation.enabled;
-            settings.maxPerDay.value = data.config.auto__participation.max_per_day;
-
+            const response = await fetch('/api/profiles');
+            this.profiles = await response.json();
+            this.renderProfiles();
         } catch (error) {
-            console.error('Erreur lors du chargement des paramètres:', error);
-            showToast('Erreur lors du chargement des paramètres.', 'error');
+            this.showToast('Erreur de chargement des profils.', 'error');
         }
     }
 
-    async function saveSettings() {
+    renderProfiles() {
+        this.profilesList.innerHTML = this.profiles.map(p => `
+            <div class="profile-item ${p.is_active ? 'active' : ''}">
+                <span>${p.name} ${p.is_active ? '(Actif)' : ''}</span>
+                <div class="profile-actions">
+                    <button class="btn btn-sm btn-secondary edit-btn" data-id="${p.id}">Modifier</button>
+                    <button class="btn btn-sm btn-danger delete-btn" data-id="${p.id}" data-name="${p.name}" ${this.profiles.length <= 1 ? 'disabled' : ''}>Supprimer</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    showProfileForm(profile) {
+        if (profile) {
+            this.profileFormTitle.textContent = 'Modifier le Profil';
+            this.profileIdInput.value = profile.id;
+            this.profileNameInput.value = profile.name;
+            this.profileEmailInput.value = profile.email;
+            this.profileUserDataInput.value = JSON.stringify(JSON.parse(profile.user_data), null, 2);
+        } else {
+            this.profileFormTitle.textContent = 'Ajouter un Profil';
+            this.profileIdInput.value = '';
+            this.profileNameInput.value = '';
+            this.profileEmailInput.value = '';
+            this.profileUserDataInput.value = JSON.stringify({ name: "", phone: "", address: "" }, null, 2);
+        }
+        this.profileFormContainer.style.display = 'block';
+    }
+
+    hideProfileForm() {
+        this.profileFormContainer.style.display = 'none';
+    }
+
+    async saveProfile() {
+        const id = this.profileIdInput.value;
+        const name = this.profileNameInput.value;
+        const email = this.profileEmailInput.value;
+        let userData;
+
+        if (!name) {
+            this.showToast('Le nom du profil est obligatoire.', 'error');
+            return;
+        }
+
         try {
-            const response = await fetch('/api/settings', {
-                method: 'POST',
+            userData = JSON.parse(this.profileUserDataInput.value);
+        } catch (e) {
+            this.showToast('Les données utilisateur ne sont pas un JSON valide.', 'error');
+            return;
+        }
+
+        const profileData = { name, email, userData };
+        const url = id ? `/api/profiles/${id}` : '/api/profiles';
+        const method = id ? 'PUT' : 'POST';
+
+        try {
+            const response = await fetch(url, {
+                method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userData: {
-                        name: settings.userName.value,
-                        email: settings.userEmail.value,
-                    },
-                    config: {
-                        notifications: {
-                            desktop: settings.desktopNotifications.checked,
-                            browser: settings.browserNotifications.checked,
-                            min_priority: parseInt(settings.minPriority.value),
-                        },
-                        scraping: {
-                            interval_minutes: parseInt(settings.scrapingInterval.value),
-                        },
-                        auto__participation: {
-                            enabled: settings.autoParticipationEnabled.checked,
-                            max_per_day: parseInt(settings.maxPerDay.value),
-                        },
-                    },
-                }),
+                body: JSON.stringify(profileData)
             });
 
             if (response.ok) {
-                showToast('Paramètres enregistrés avec succès!');
+                this.showToast('Profil enregistré avec succès!', 'success');
+                this.hideProfileForm();
+                await this.loadProfiles();
             } else {
-                showToast('Erreur lors de l\'enregistrement des paramètres.', 'error');
+                const result = await response.json();
+                throw new Error(result.error || 'Erreur inconnue');
             }
         } catch (error) {
-            console.error('Erreur lors de l\'enregistrement des paramètres:', error);
-            showToast('Erreur lors de l\'enregistrement des paramètres.', 'error');
+            this.showToast(`Erreur: ${error.message}`, 'error');
         }
     }
 
-    function showToast(message, type = 'success') {
-        toast.textContent = message;
-        toast.className = `toast show ${type}`;
-        setTimeout(() => {
-            toast.className = toast.className.replace('show', '');
-        }, 3000);
+    async deleteProfile(id) {
+        try {
+            const response = await fetch(`/api/profiles/${id}`, { method: 'DELETE' });
+            if (response.ok) {
+                this.showToast('Profil supprimé avec succès!', 'success');
+                await this.loadProfiles();
+            } else {
+                 const result = await response.json();
+                throw new Error(result.error || 'Erreur inconnue');
+            }
+        } catch (error) {
+             this.showToast(`Erreur: ${error.message}`, 'error');
+        }
     }
 
-    saveBtn.addEventListener('click', saveSettings);
+    showToast(message, type = 'success') {
+        this.toast.textContent = message;
+        this.toast.className = `toast show ${type}`;
+        setTimeout(() => {
+            this.toast.className = this.toast.className.replace('show', '');
+        }, 3000);
+    }
+}
 
-    loadSettings();
+document.addEventListener('DOMContentLoaded', () => {
+    new SettingsApp();
 });

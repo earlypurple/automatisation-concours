@@ -93,20 +93,23 @@ class APIServer:
                     response = json.loads(result.stdout)
                     if response.get('success'):
                         requires_confirmation = job.get('requires_email_confirmation', False)
-
                         if requires_confirmation:
                             domain = urlparse(url).netloc
                             db.set_confirmation_pending(opp_id, domain)
                         else:
                             db.update_opportunity_status(opp_id, 'success', response.get('message', 'Participation réussie.'))
+                        db.add_participation_history(opp_id, 'participated', job['profile_id'])
                     else:
                         db.update_opportunity_status(opp_id, 'failed', response.get('error', 'Une erreur inconnue est survenue.'))
+                        db.add_participation_history(opp_id, 'failed', job['profile_id'])
 
                 except subprocess.CalledProcessError as e:
                     error_output = e.stderr or e.stdout
                     db.update_opportunity_status(opp_id, 'failed', f"Erreur du script: {error_output}")
+                    db.add_participation_history(opp_id, 'failed', job['profile_id'])
                 except Exception as e:
                     db.update_opportunity_status(opp_id, 'failed', f"Erreur système: {e}")
+                    db.add_participation_history(opp_id, 'failed', job['profile_id'])
 
                 self.participation_queue.task_done()
 
@@ -145,33 +148,6 @@ class APIServer:
             self.server.server_close()
             print("Serveur arrêté.")
 
-def get_user_data_from_js():
-    try:
-        with open('js/auth.js', 'r', encoding='utf-8') as f:
-            content = f.read()
-            name_match = re.search(r"const userName = '(.*)';", content)
-            email_match = re.search(r"const userEmail = '(.*)';", content)
-            return {
-                'name': name_match.group(1) if name_match else '',
-                'email': email_match.group(1) if email_match else ''
-            }
-    except FileNotFoundError:
-        return {'name': '', 'email': ''}
-
-def save_user_data_to_js(name, email):
-    try:
-        with open('js/auth.js', 'r+', encoding='utf-8') as f:
-            content = f.read()
-            content = re.sub(r"const userName = '.*';", f"const userName = '{name}';", content)
-            content = re.sub(r"const userEmail = '.*';", f"const userEmail = '{email}';", content)
-            f.seek(0)
-            f.write(content)
-            f.truncate()
-    except FileNotFoundError:
-        # If the file doesn't exist, create it with the new data
-        with open('js/auth.js', 'w', encoding='utf-8') as f:
-            f.write(f"const userName = '{name}';\nconst userEmail = '{email}';\n")
-
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, stats_provider=None, api_server=None, **kwargs):
         self.stats_provider = stats_provider
@@ -183,34 +159,81 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.sites_config = {}
         super().__init__(*args, **kwargs)
 
-    def do_GET(self):
+    def send_json_response(self, status_code, data):
+        self.send_response(status_code)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+
+    def get_json_body(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        return json.loads(post_data)
+
+    def handle_api_get(self):
+        # --- Routes GET ---
         if self.path == '/api/data':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
+            active_profile = db.get_active_profile()
+            if not active_profile:
+                return self.send_json_response(404, {'error': 'No active profile found'})
 
-            opportunities = db.get_opportunities()
+            opportunities = db.get_opportunities(active_profile['id'])
             stats = self.stats_provider() if self.stats_provider else {}
-            data = {
-                'opportunities': opportunities,
-                'stats': stats
-            }
-            self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
-        elif self.path == '/api/settings':
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
+            data = {'opportunities': opportunities, 'stats': stats}
+            self.send_json_response(200, data)
 
-            user_data = get_user_data_from_js()
-            with open('config.json', 'r', encoding='utf-8') as f:
-                config_data = json.load(f)
+        elif self.path == '/api/profiles':
+            profiles = db.get_profiles()
+            self.send_json_response(200, profiles)
 
-            settings = {
-                'userData': user_data,
-                'config': config_data
-            }
-            self.wfile.write(json.dumps(settings, ensure_ascii=False).encode('utf-8'))
+        elif self.path == '/api/profiles/active':
+            profile = db.get_active_profile()
+            self.send_json_response(200, profile)
 
+        else:
+            self.send_json_response(404, {'error': 'Not Found'})
+
+    def handle_api_post(self):
+        # --- Routes POST ---
+        if self.path == '/api/participate':
+            self.handle_participation()
+
+        elif self.path == '/api/profiles':
+            body = self.get_json_body()
+            profile_id = db.create_profile(body['name'], body.get('email'), body.get('userData'), body.get('settings'))
+            self.send_json_response(201, {'id': profile_id, 'message': 'Profile created successfully'})
+
+        elif re.match(r'/api/profiles/\d+/activate', self.path):
+            profile_id = int(self.path.split('/')[-2])
+            db.set_active_profile(profile_id)
+            self.send_json_response(200, {'message': f'Profile {profile_id} activated'})
+
+        else:
+            self.send_json_response(404, {'error': 'Not Found'})
+
+    def handle_api_put(self):
+        if re.match(r'/api/profiles/\d+', self.path):
+            profile_id = int(self.path.split('/')[-1])
+            body = self.get_json_body()
+            db.update_profile(profile_id, body.get('name'), body.get('email'), body.get('userData'), body.get('settings'))
+            self.send_json_response(200, {'message': f'Profile {profile_id} updated'})
+        else:
+            self.send_json_response(404, {'error': 'Not Found'})
+
+    def handle_api_delete(self):
+        if re.match(r'/api/profiles/\d+', self.path):
+            profile_id = int(self.path.split('/')[-1])
+            try:
+                db.delete_profile(profile_id)
+                self.send_json_response(200, {'message': f'Profile {profile_id} deleted'})
+            except ValueError as e:
+                self.send_json_response(400, {'error': str(e)})
+        else:
+            self.send_json_response(404, {'error': 'Not Found'})
+
+    def do_GET(self):
+        if self.path.startswith('/api/'):
+            self.handle_api_get()
         elif self.path == '/settings':
             self.path = '/settings.html'
             super().do_GET()
@@ -218,70 +241,47 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     def do_POST(self):
-        if self.path == '/api/participate':
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            body = json.loads(post_data)
-
-            opp_id = body.get('id')
-            url = body.get('url')
-            userData = body.get('userData')
-
-            if not all([opp_id, url, userData]):
-                self.send_response(400)
-                self.send_header('Content-type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({'success': False, 'error': 'Missing id, url, or userData'}).encode('utf-8'))
-                return
-
-            # Récupérer les détails de l'opportunité pour la configuration
-            opportunity = db.get_opportunity_by_id(opp_id)
-            if not opportunity:
-                self.send_response(404)
-                self.send_header('Content-type', 'application/json')
-                self.end_headers()
-                self.wfile.write(json.dumps({'success': False, 'error': 'Opportunity not found'}).encode('utf-8'))
-                return
-
-            site_key = opportunity.get('site')
-            site_config = self.sites_config.get(site_key, {})
-            requires_confirmation = site_config.get('requires_email_confirmation', False)
-
-            # Mettre en file d'attente
-            job = {
-                'id': opp_id,
-                'url': url,
-                'userData': userData,
-                'requires_email_confirmation': requires_confirmation
-            }
-            self.api_server.participation_queue.put(job)
-
-            # Mettre à jour le statut immédiatement
-            db.update_opportunity_status(opp_id, 'pending', 'Participation mise en file d\'attente.')
-
-            self.send_response(202) # 202 Accepted
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({'success': True, 'message': 'Participation en file d\'attente.'}).encode('utf-8'))
-
-        elif self.path == '/api/settings':
-            content_length = int(self.headers['Content-Length'])
-            post_data = self.rfile.read(content_length)
-            settings = json.loads(post_data)
-
-            # Save user data to js/auth.js
-            user_data = settings.get('userData', {})
-            save_user_data_to_js(user_data.get('name', ''), user_data.get('email', ''))
-
-            # Save config data to config.json
-            with open('config.json', 'w', encoding='utf-8') as f:
-                json.dump(settings.get('config', {}), f, indent=4)
-
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({'success': True, 'message': 'Paramètres enregistrés avec succès.'}).encode('utf-8'))
-
+        if self.path.startswith('/api/'):
+            self.handle_api_post()
         else:
-            self.send_response(404)
-            self.end_headers()
+            self.send_json_response(404, {'error': 'Not Found'})
+
+    def do_PUT(self):
+        if self.path.startswith('/api/'):
+            self.handle_api_put()
+        else:
+            self.send_json_response(404, {'error': 'Not Found'})
+
+    def do_DELETE(self):
+        if self.path.startswith('/api/'):
+            self.handle_api_delete()
+        else:
+            self.send_json_response(404, {'error': 'Not Found'})
+
+    def handle_participation(self):
+        body = self.get_json_body()
+        opp_id = body.get('id')
+
+        active_profile = db.get_active_profile()
+        if not active_profile:
+            return self.send_json_response(400, {'error': 'No active profile to participate with.'})
+
+        opportunity = db.get_opportunity_by_id(opp_id)
+        if not opportunity:
+            return self.send_json_response(404, {'error': 'Opportunity not found'})
+
+        user_data = json.loads(active_profile['user_data'])
+        site_key = opportunity.get('site')
+        site_config = self.sites_config.get(site_key, {})
+        requires_confirmation = site_config.get('requires_email_confirmation', False)
+
+        job = {
+            'id': opp_id,
+            'url': opportunity['url'],
+            'userData': user_data,
+            'requires_email_confirmation': requires_confirmation,
+            'profile_id': active_profile['id']
+        }
+        self.api_server.participation_queue.put(job)
+        db.update_opportunity_status(opp_id, 'pending', 'Participation mise en file d\'attente.')
+        self.send_json_response(202, {'success': True, 'message': 'Participation en file d\'attente.'})

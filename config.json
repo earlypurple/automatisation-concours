@@ -32,7 +32,11 @@
     },
     "proxies": {
         "enabled": false,
-        "rotation_mode": "random"
+        "rotation_mode": "random",
+        "list": [
+            "http://user:pass@host:port",
+            "http://user2:pass2@host2:port"
+        ]
     },
     "captcha_solver": {
         "enabled": false,

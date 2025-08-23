@@ -45,11 +45,12 @@ class SurveillanceUltraAvancee:
         except (ValueError, IndexError):
             return None
 
-    def scrape_site_intelligent(self, site_key, config):
-        """Scraping intelligent avec Puppeteer."""
+    def scrape_site_intelligent(self, site_key, site_config, profile_id):
+        """Scraping intelligent avec Puppeteer pour un profil donné."""
         try:
+            # Passe la configuration globale et la configuration du site au script
             result = subprocess.run(
-                ['node', 'js/puppeteer_scraper.js', site_key, json.dumps(config)],
+                ['node', 'js/puppeteer_scraper.js', site_key, json.dumps(site_config), json.dumps(self.config)],
                 capture_output=True, text=True, check=True, encoding='utf-8'
             )
             items = json.loads(result.stdout)
@@ -63,17 +64,17 @@ class SurveillanceUltraAvancee:
                     'site': site_key,
                     'title': item.get('title') or f'Opportunité {site_key}',
                     'description': item.get('description', ''),
-                    'url': config['url'],
-                    'type': config['type'],
-                    'priority': config['priority'],
+                    'url': site_config['url'],
+                    'type': site_config['type'],
+                    'priority': site_config['priority'],
                     'value': value,
-                    'auto_fill': config.get('auto_fill', False),
+                    'auto_fill': site_config.get('auto_fill', False),
                     'detected_at': datetime.now().isoformat(),
                     'expires_at': (datetime.now() + timedelta(days=7)).isoformat(),
                     'entries_count': entries_count,
                     'time_left': item.get('time_left')
                 }
-                db.add_opportunity(opportunity)
+                db.add_opportunity(opportunity, profile_id)
                 with self.lock:
                     self.stats['today_new'] += 1
         except subprocess.CalledProcessError as e:
@@ -84,23 +85,30 @@ class SurveillanceUltraAvancee:
             print(f"Erreur inattendue pour {site_key}: {e}")
 
     def run_surveillance_complete(self):
-        print("🚀 Lancement Surveillance Ultra Avancée V3.0")
-        db.clear_opportunities()
+        active_profile = db.get_active_profile()
+        if not active_profile:
+            print("❌ Aucun profil actif trouvé. Veuillez en activer un.")
+            return
+
+        profile_id = active_profile['id']
+        print(f"🚀 Lancement de la surveillance pour le profil : {active_profile['name']} (ID: {profile_id})")
+
+        db.clear_opportunities(profile_id)
         self.stats['today_new'] = 0
 
         threads = []
         for key, cfg in self.sites_config.items():
-            t = threading.Thread(target=self.scrape_site_intelligent, args=(key, cfg))
+            t = threading.Thread(target=self.scrape_site_intelligent, args=(key, cfg, profile_id))
             threads.append(t)
             t.start()
         for t in threads:
             t.join()
 
         # Mettre à jour les scores après le scraping
-        print("Mise à jour des scores d'opportunité...")
-        db.update_all_scores()
+        print(f"Mise à jour des scores pour le profil {profile_id}...")
+        db.update_all_scores(profile_id)
 
-        opportunities = db.get_opportunities()
+        opportunities = db.get_opportunities(profile_id)
         self.stats['total_found'] = len(opportunities)
-        self.stats['total_value'] = sum(o['value'] for o in opportunities)
-        print(f"✅ {self.stats['total_found']} opportunités, valeur ~€{self.stats['total_value']:.2f}")
+        self.stats['total_value'] = sum(o['value'] for o in opportunities if o['value'])
+        print(f"✅ {self.stats['total_found']} opportunités trouvées pour le profil {active_profile['name']}, valeur ~€{self.stats['total_value']:.2f}")

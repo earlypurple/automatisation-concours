@@ -13,10 +13,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "puppeteer": "^22.12.1"
+    "puppeteer": "^22.12.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
   },
   "devDependencies": {
-    "mocha": "^10.2.0",
-    "jsdom": "^22.1.0"
+    "jsdom": "^22.1.0",
+    "mocha": "^10.2.0"
   }
 }
