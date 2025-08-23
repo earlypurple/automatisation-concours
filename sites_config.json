@@ -7,7 +7,7 @@
         "selectors": {
             "product": ".product-item",
             "title": "h2.product-name",
-            "price": ".price"
+            "value": ".price"
         }
     },
     "loccitane": {
@@ -18,7 +18,7 @@
         "selectors": {
             "product": ".product-tile",
             "title": ".product-name",
-            "price": ".product-price"
+            "value": ".product-price"
         }
     },
     "shopmium": {
@@ -29,7 +29,7 @@
         "selectors": {
             "offer": ".offer-item",
             "title": ".offer-title",
-            "cashback": ".cashback-amount"
+            "value": ".cashback-amount"
         }
     },
     "casino_concours": {
@@ -40,7 +40,7 @@
         "selectors": {
             "contest": ".contest-item",
             "title": ".contest-title",
-            "prize": ".prize-value"
+            "value": ".prize-value"
         }
     },
     "intermarche_jeu": {
@@ -51,7 +51,7 @@
         "selectors": {
             "game": ".game-item",
             "title": ".game-title",
-            "prize": ".prize-description"
+            "value": ".prize-description"
         }
     },
     "marionnaud": {
@@ -62,7 +62,8 @@
         "selectors": {
             "sample": ".sample-item",
             "title": ".sample-name",
-            "brand": ".brand-name"
+            "brand": ".brand-name",
+            "value": ".price"
         }
     },
     "carrefour": {
@@ -73,7 +74,7 @@
         "selectors": {
             "promo": ".promo-item",
             "title": ".promo-title",
-            "amount": ".refund-amount"
+            "value": ".refund-amount"
         }
     },
     "nocibe": {
@@ -95,7 +96,8 @@
         "selectors": {
             "contest": ".contest-block",
             "title": ".contest-name",
-            "endDate": ".end-date"
+            "endDate": ".end-date",
+            "value": ".contest-prize"
         }
     },
     "leclerc": {
@@ -106,7 +108,7 @@
         "selectors": {
             "offer": ".ticket-leclerc",
             "title": ".offer-title",
-            "amount": ".cashback-value"
+            "value": ".cashback-value"
         }
     }
 }

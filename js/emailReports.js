@@ -1,4 +1,7 @@
 // emailReports.js
+const Utils = require('./utils.js');
+const Analytics = require('./analytics.js');
+
 class EmailReportManager {
     constructor() {
         this.config = {

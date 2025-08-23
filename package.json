@@ -1,0 +1,18 @@
+{
+  "name": "surveillance-gratuite-pro",
+  "version": "3.0.0",
+  "description": "Dashboard de surveillance",
+  "main": "app.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "mocha --require tests/setup.js tests/test_suite.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "mocha": "^10.2.0",
+    "jsdom": "^22.1.0"
+  }
+}

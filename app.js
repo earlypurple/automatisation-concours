@@ -34,11 +34,31 @@ class SurveillanceApp {
 
         // Recherche
         const searchInput = document.querySelector('.search-bar');
-        searchInput?.addEventListener('input', (e) => this.filterOpportunities(e.target.value));
+        searchInput?.addEventListener('input', (e) => this.renderOpportunities());
 
         // Filtres
         document.querySelectorAll('.filter-tag').forEach(tag => {
             tag.addEventListener('click', () => this.toggleFilter(tag));
+        });
+
+        // Boutons de contrôle
+        document.getElementById('update-btn')?.addEventListener('click', () => this.loadData());
+        document.getElementById('export-btn')?.addEventListener('click', () => this.exportData());
+        document.getElementById('notifications-btn')?.addEventListener('click', () => this.showNotification('Notifications non implémentées'));
+        document.getElementById('analytics-btn')?.addEventListener('click', () => this.toggleAnalytics());
+
+        // Event delegation pour les actions sur les opportunités
+        const grid = document.getElementById('opportunitiesGrid');
+        grid.addEventListener('click', (e) => {
+            if (e.target.closest('.btn-secondary')) {
+                const card = e.target.closest('.opportunity');
+                const url = card.querySelector('a').href;
+                const title = card.querySelector('h3').textContent;
+                this.copyLink(url, title);
+            }
+            if (e.target.closest('.checkbox')) {
+                this.toggleParticipation(e.target.closest('.checkbox'));
+            }
         });
     }
 
@@ -78,15 +98,14 @@ class SurveillanceApp {
 
         // Mise à jour de la grille d'opportunités
         this.renderOpportunities();
+        this.renderCategoryChart();
     }
 
     renderOpportunities() {
         const grid = document.getElementById('opportunitiesGrid');
         grid.innerHTML = '';
-
-        const filteredOpps = this.filterOpportunities(
-            document.querySelector('.search-bar')?.value || ''
-        );
+        const search = document.querySelector('.search-bar')?.value || '';
+        const filteredOpps = this.filterOpportunities(search);
 
         filteredOpps.forEach(opp => {
             const card = this.createOpportunityCard(opp);
@@ -109,10 +128,10 @@ class SurveillanceApp {
             </div>
             <div class="actions">
                 <a href="${opp.url}" target="_blank" class="btn btn-primary pulse">🚀 Participer</a>
-                <button onclick="app.copyLink('${opp.url}', '${opp.title}')" class="btn btn-secondary">📋 Copier</button>
+                <button class="btn btn-secondary">📋 Copier</button>
             </div>
             <div class="participation-tracker">
-                <div class="checkbox" onclick="app.toggleParticipation(this)"></div>
+                <div class="checkbox"></div>
                 <span>Participé</span>
             </div>
         `;
@@ -122,12 +141,15 @@ class SurveillanceApp {
 
     filterOpportunities(search) {
         let filtered = [...this.opportunities];
-        
+        const activeFilter = this.filters.values().next().value;
+
         // Filtres actifs
-        if (this.filters.size > 0) {
-            filtered = filtered.filter(opp => 
-                this.filters.has('all') || this.filters.has(opp.type)
-            );
+        if (activeFilter && activeFilter !== 'all') {
+            if (activeFilter === 'priority-5') {
+                 filtered = filtered.filter(opp => opp.priority >= 5);
+            } else {
+                 filtered = filtered.filter(opp => opp.type === activeFilter);
+            }
         }
 
         // Recherche
@@ -144,7 +166,7 @@ class SurveillanceApp {
 
     toggleFilter(tag) {
         const type = tag.getAttribute('data-type');
-        
+
         document.querySelectorAll('.filter-tag').forEach(t => t.classList.remove('active'));
         tag.classList.add('active');
 
@@ -152,6 +174,21 @@ class SurveillanceApp {
         this.filters.add(type);
 
         this.renderOpportunities();
+    }
+
+    exportData() {
+        const data = JSON.stringify({
+            opportunities: this.opportunities,
+            stats: this.stats
+        }, null, 2);
+        const blob = new Blob([data], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'surveillance_data.json';
+        a.click();
+        URL.revokeObjectURL(url);
+        this.showNotification('Données exportées en JSON', 'success');
     }
 
     async copyLink(url, title) {
@@ -190,10 +227,64 @@ class SurveillanceApp {
             toast.classList.remove('show');
         }, 3000);
     }
+
+    toggleAnalytics() {
+        const section = document.getElementById('analytics-section');
+        if (section.style.display === 'none') {
+            section.style.display = 'block';
+        } else {
+            section.style.display = 'none';
+        }
+    }
+
+    renderCategoryChart() {
+        const categoryData = this.opportunities.reduce((acc, opp) => {
+            acc[opp.type] = (acc[opp.type] || 0) + opp.value;
+            return acc;
+        }, {});
+
+        const ctx = document.getElementById('category-chart').getContext('2d');
+
+        if (this.categoryChart) {
+            this.categoryChart.destroy();
+        }
+
+        this.categoryChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(categoryData),
+                datasets: [{
+                    label: 'Valeur totale par catégorie',
+                    data: Object.values(categoryData),
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(75, 192, 192, 0.7)',
+                        'rgba(153, 102, 255, 0.7)',
+                    ],
+                    borderColor: 'rgba(255, 255, 255, 1)',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Valeur totale par catégorie'
+                    }
+                }
+            }
+        });
+    }
 }
 
 // Initialisation
-const app = new App();
+const app = new SurveillanceApp();
 
 // Export pour PWA
 if (typeof module !== 'undefined' && module.exports) {

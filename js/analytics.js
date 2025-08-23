@@ -1,4 +1,5 @@
 // analytics.js
+const Utils = require('./utils.js');
 
 class Analytics {
     constructor() {
@@ -180,26 +181,28 @@ class Analytics {
         if (stats.trends.today.participations < stats.trends.yesterday.participations) {
             recommendations.push({
                 type: 'warning',
-                message: 'Baisse des participations aujourd'hui',
+                message: "Baisse des participations aujourd'hui",
                 action: 'Augmenter la fréquence de scan'
             });
         }
 
         // Analyse des catégories
         const categories = Object.entries(stats.categories);
-        const bestCategory = categories.sort((a, b) => b[1].totalValue - a[1].totalValue)[0];
-        recommendations.push({
-            type: 'success',
-            message: `${bestCategory[0]} est votre meilleure catégorie`,
-            action: 'Concentrez-vous sur ce type d'opportunités'
-        });
+        if (categories.length > 0) {
+            const bestCategory = categories.sort((a, b) => b[1].totalValue - a[1].totalValue)[0];
+            recommendations.push({
+                type: 'success',
+                message: `${bestCategory[0]} est votre meilleure catégorie`,
+                action: "Concentrez-vous sur ce type d'opportunités"
+            });
+        }
 
         // Analyse du taux de succès
         if (parseFloat(stats.total.successRate) < 50) {
             recommendations.push({
                 type: 'error',
                 message: 'Taux de succès faible',
-                action: 'Vérifier les raisons des échecs'
+                action: "Vérifier les raisons des échecs"
             });
         }
 
