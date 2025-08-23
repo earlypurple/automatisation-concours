@@ -7,11 +7,12 @@ import sys
 import json
 
 # Add the root directory to the Python path to allow importing server and database
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from logger import logger
 import server
 import database as db
+import analytics
 
 class TestApi(unittest.TestCase):
 
@@ -27,7 +28,16 @@ class TestApi(unittest.TestCase):
         db.run_migrations()
         db.init_db()
 
-        cls.api_server = server.APIServer(host='localhost', port=8081)
+        def test_analytics_provider():
+            active_profile = db.get_active_profile()
+            profile_id = active_profile['id'] if active_profile else None
+            return analytics.get_analytics_data(profile_id)
+
+        cls.api_server = server.APIServer(
+            host='localhost',
+            port=8081,
+            stats_provider=test_analytics_provider
+        )
         cls.server_thread = threading.Thread(target=cls.api_server.run, daemon=True)
         cls.server_thread.start()
         time.sleep(1)
@@ -144,6 +154,58 @@ class TestApi(unittest.TestCase):
         response = self._api_get("/data")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()['opportunities']), 0)
+
+    def test_03_get_data_with_analytics(self):
+        # 1. Create and activate a new profile for this test
+        profile_data = self._create_profile("Analytics Test Profile")
+        profile_id = profile_data['id']
+        self._api_post(f"/profiles/{profile_id}/activate")
+
+        # 2. Add dummy data for THIS profile
+        with db.db_cursor() as cur:
+            # Opportunities in different months
+            cur.execute("INSERT INTO opportunities (id, title, site, url, detected_at, profile_id) VALUES (?, ?, ?, ?, ?, ?)",
+                        (101, 'Opp Jan', 's1', 'u1', '2023-01-10T10:00:00', profile_id))
+            cur.execute("INSERT INTO opportunities (id, title, site, url, detected_at, profile_id) VALUES (?, ?, ?, ?, ?, ?)",
+                        (102, 'Opp Jan 2', 's1', 'u2', '2023-01-20T10:00:00', profile_id))
+            cur.execute("INSERT INTO opportunities (id, title, site, url, detected_at, profile_id) VALUES (?, ?, ?, ?, ?, ?)",
+                        (103, 'Opp Feb', 's1', 'u3', '2023-02-05T10:00:00', profile_id))
+
+            # Participation history for success rate calculation
+            # 3 successes, 1 failure -> 75% success rate
+            cur.execute("INSERT INTO participation_history (opportunity_id, participation_date, status, profile_id) VALUES (?, ?, ?, ?)",
+                        (101, '2023-01-11T10:00:00', 'success', profile_id))
+            cur.execute("INSERT INTO participation_history (opportunity_id, participation_date, status, profile_id) VALUES (?, ?, ?, ?)",
+                        (102, '2023-01-21T10:00:00', 'participated', profile_id))
+            cur.execute("INSERT INTO participation_history (opportunity_id, participation_date, status, profile_id) VALUES (?, ?, ?, ?)",
+                        (103, '2023-02-06T10:00:00', 'success', profile_id))
+            cur.execute("INSERT INTO participation_history (opportunity_id, participation_date, status, profile_id) VALUES (?, ?, ?, ?)",
+                        (103, '2023-02-07T10:00:00', 'failed', profile_id))
+
+        # Call the API
+        response = self._api_get("/data")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        stats = data.get('stats', {})
+
+        # Assertions for stats
+        self.assertIn('opportunities_over_time', stats)
+        self.assertIn('success_rate', stats)
+
+        # Check success rate (3/4 = 75%)
+        self.assertEqual(stats['success_rate'], 75.0)
+
+        # Check opportunities over time
+        time_data = stats['opportunities_over_time']
+        self.assertEqual(len(time_data), 2)
+
+        jan_data = next((item for item in time_data if 'Jan 2023' in item['name']), None)
+        feb_data = next((item for item in time_data if 'Feb 2023' in item['name']), None)
+
+        self.assertIsNotNone(jan_data)
+        self.assertIsNotNone(feb_data)
+        self.assertEqual(jan_data['opportunités'], 2)
+        self.assertEqual(feb_data['opportunités'], 1)
 
 if __name__ == '__main__':
     unittest.main()
