@@ -1,46 +1,78 @@
-"""
-Module pour la logique de sélection intelligente des opportunités.
-"""
+import joblib
+import pandas as pd
+import os
+from datetime import datetime
 
-def calculate_score(opportunity):
+MODEL_PATH = 'opportunity_model.joblib'
+
+# Charger le modèle une seule fois au démarrage si possible
+model = None
+if os.path.exists(MODEL_PATH):
+    try:
+        model = joblib.load(MODEL_PATH)
+    except Exception as e:
+        print(f"Erreur lors du chargement du modèle: {e}")
+
+def calculate_score_fallback(opportunity):
     """
-    Calcule un score pour une seule opportunité.
-    Le score est basé sur la valeur, la priorité, et le nombre de participants.
+    Logique de score de base si le modèle n'est pas disponible.
     """
     score = 0
+    score += (opportunity.get('value') or 0) * 1.5
+    score += (opportunity.get('priority') or 0) * 10
 
-    # Bonus pour la valeur
-    score += opportunity.get('value', 0) * 1.5
-
-    # Bonus pour la priorité
-    score += (opportunity.get('priority', 0) * 10)
-
-    # Pénalité pour le nombre de participants (si disponible)
-    # Moins il y a de participants, meilleur est le score.
     entries = opportunity.get('entries_count')
     if entries is not None and entries > 0:
         score -= (entries / 100)
 
-    # TODO: Ajouter une logique pour 'time_left'
+    # Logique simple pour le temps restant
+    expires_at = opportunity.get('expires_at')
+    if expires_at:
+        try:
+            time_left = datetime.fromisoformat(expires_at) - datetime.now()
+            if time_left.days < 2:
+                score += 20 # Bonus pour les opportunités qui expirent bientôt
+        except (ValueError, TypeError):
+            pass
 
-    return max(0, score) # S'assurer que le score n'est pas négatif
+    return max(0, score)
 
-def update_scores_in_db(db_connection):
+def calculate_score(opportunity):
     """
-    Récupère toutes les opportunités, calcule leur score,
-    et met à jour la base de données.
+    Calcule un score en utilisant le modèle de ML si disponible,
+    sinon utilise la logique de fallback.
     """
-    # Cette approche est moins efficace (N+1 updates).
-    # Une meilleure approche serait de faire le calcul et un seul bulk update.
-    # Mais pour la simplicité, nous allons faire comme ça pour l'instant.
+    if model is None:
+        return calculate_score_fallback(opportunity)
 
-    cur = db_connection.cursor()
-    cur.execute("SELECT * FROM opportunities")
-    opportunities = [dict(row) for row in cur.fetchall()]
+    try:
+        # Préparer les données pour le modèle
+        data = {
+            'value': [opportunity.get('value', 0)],
+            'priority': [opportunity.get('priority', 0)],
+            'entries_count': [opportunity.get('entries_count', 0)],
+            'type': [opportunity.get('type', 'unknown')],
+            'site': [opportunity.get('site', 'unknown')]
+        }
 
-    for opp in opportunities:
-        score = calculate_score(opp)
-        cur.execute("UPDATE opportunities SET score = ? WHERE id = ?", (score, opp['id']))
+        expires_at = opportunity.get('expires_at')
+        time_left_days = 30 # Valeur par défaut
+        if expires_at:
+            try:
+                time_left_days = (datetime.fromisoformat(expires_at) - datetime.now()).total_seconds() / (3600 * 24)
+            except (ValueError, TypeError):
+                pass
+        data['time_left_days'] = [time_left_days]
 
-    db_connection.commit()
-    print(f"{len(opportunities)} scores mis à jour dans la base de données.")
+        df = pd.DataFrame(data)
+
+        # Le modèle retourne les probabilités pour les classes 0 et 1
+        # On veut la probabilité de la classe 1 (won)
+        win_probability = model.predict_proba(df)[0][1]
+
+        # Le score est la probabilité de gain (entre 0 et 1, multiplié par 100)
+        return win_probability * 100
+
+    except Exception as e:
+        print(f"Erreur lors du calcul du score avec le modèle: {e}")
+        return calculate_score_fallback(opportunity)

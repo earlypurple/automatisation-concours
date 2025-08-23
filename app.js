@@ -10,8 +10,8 @@ class SurveillanceApp {
 
     async init() {
         await this.loadConfig();
-        await this.loadSettings(); // Charger les paramètres utilisateur
         this.setupEventListeners();
+        await this.setupProfiles(); // Charger les profils
         this.setupPWA();
         this.startAutoUpdate();
         await this.loadData();
@@ -19,6 +19,8 @@ class SurveillanceApp {
 
     async loadConfig() {
         try {
+            // Note: la config globale est moins importante maintenant,
+            // beaucoup de paramètres sont par profil.
             const response = await fetch('/config.json');
             this.config = await response.json();
         } catch (error) {
@@ -26,14 +28,45 @@ class SurveillanceApp {
         }
     }
 
-    async loadSettings() {
+    async setupProfiles() {
+        const switcher = document.getElementById('profile-switcher');
+        if (!switcher) return;
+
         try {
-            const response = await fetch('/api/settings');
-            const settings = await response.json();
-            this.userData = settings.userData;
+            const [profilesRes, activeProfileRes] = await Promise.all([
+                fetch('/api/profiles'),
+                fetch('/api/profiles/active')
+            ]);
+
+            const profiles = await profilesRes.json();
+            const activeProfile = await activeProfileRes.json();
+
+            switcher.innerHTML = '';
+            profiles.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = p.name;
+                if (p.id === activeProfile.id) {
+                    option.selected = true;
+                }
+                switcher.appendChild(option);
+            });
+
+            switcher.addEventListener('change', (e) => this.switchProfile(e.target.value));
+
         } catch (error) {
-            console.error('Erreur chargement des paramètres utilisateur:', error);
-            this.userData = {}; // Initialiser avec un objet vide en cas d'erreur
+            console.error('Erreur de chargement des profils:', error);
+            this.showNotification("Impossible de charger les profils.", 'error');
+        }
+    }
+
+    async switchProfile(profileId) {
+        try {
+            await fetch(`/api/profiles/${profileId}/activate`, { method: 'POST' });
+            this.showNotification('Profil changé, rechargement...', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } catch (error) {
+            this.showNotification('Erreur lors du changement de profil.', 'error');
         }
     }
 
@@ -261,17 +294,12 @@ class SurveillanceApp {
         }
     }
 
-    async participate(id, url) {
-        if (!this.userData || !this.userData.email) {
-            this.showNotification('Veuillez configurer vos informations utilisateur dans les paramètres.', 'error');
-            return;
-        }
-
+    async participate(id) {
         try {
             const response = await fetch('/api/participate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: parseInt(id), url, userData: this.userData })
+                body: JSON.stringify({ id: parseInt(id) })
             });
 
             const result = await response.json();

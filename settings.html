@@ -13,20 +13,39 @@
             <p style="opacity:.8">Gérez la configuration de votre application.</p>
         </div>
 
-        <div class="settings-form">
-            <div class="form-section">
-                <h2>Informations Utilisateur</h2>
-                <div class="form-group">
-                    <label for="userName">Nom</label>
-                    <input type="text" id="userName" name="userName" placeholder="Votre nom complet">
-                </div>
-                <div class="form-group">
-                    <label for="userEmail">E-mail</label>
-                    <input type="email" id="userEmail" name="userEmail" placeholder="Votre adresse e-mail">
+        <div class="settings-container">
+            <!-- Section de gestion des profils -->
+            <div id="profile-management" class="settings-form">
+                <h2>Gestion des Profils</h2>
+                <div id="profiles-list"></div>
+                <button id="add-profile-btn" class="btn btn-success">Ajouter un profil</button>
+
+                <div id="profile-form-container" class="form-section" style="display:none;">
+                    <h3 id="profile-form-title">Ajouter un Profil</h3>
+                    <input type="hidden" id="profileId">
+                    <div class="form-group">
+                        <label for="profileName">Nom du Profil</label>
+                        <input type="text" id="profileName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="profileEmail">E-mail</label>
+                        <input type="email" id="profileEmail">
+                    </div>
+                    <div class="form-group">
+                        <label for="profileUserData">Données Utilisateur (JSON)</label>
+                        <textarea id="profileUserData" rows="5" placeholder='{ "name": "Votre Nom", "phone": "Votre Tel", "address": "Votre Adresse" }'></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button id="save-profile-btn" class.btn.btn-primary">Enregistrer</button>
+                        <button id="cancel-profile-btn" class="btn btn-secondary">Annuler</button>
+                    </div>
                 </div>
             </div>
 
-            <div class="form-section">
+            <!-- Section des paramètres globaux -->
+            <div class="settings-form">
+                <h2>Paramètres Généraux</h2>
+                 <div class="form-section">
                 <h2>Notifications</h2>
                 <div class="form-group">
                     <label>
