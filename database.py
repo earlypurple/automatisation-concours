@@ -1,4 +1,5 @@
 import sqlite3
+import os
 from contextlib import contextmanager
 
 DB_FILE = 'surveillance.db'
@@ -27,7 +28,9 @@ def run_migrations():
     logger.info("Running database migrations...")
     # We run this as a subprocess to ensure it's using the correct context
     # and pass the database file as an argument.
-    subprocess.run(['python', 'migrations/migrate.py', DB_FILE], check=True)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    migration_script = os.path.join(script_dir, 'migrations', 'migrate.py')
+    subprocess.run(['python', migration_script, DB_FILE], check=True)
     logger.info("Migrations completed.")
 
 def init_db():
