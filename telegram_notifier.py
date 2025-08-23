@@ -1,5 +1,6 @@
 import requests
 from config_handler import config_handler
+from logger import logger
 
 def send_telegram_message(message):
     """
@@ -15,7 +16,7 @@ def send_telegram_message(message):
     chat_id = telegram_config.get('chat_id')
 
     if not bot_token or not chat_id:
-        print("Telegram bot_token or chat_id is not configured.")
+        logger.warning("Telegram bot_token or chat_id is not configured.")
         return
 
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
@@ -28,9 +29,9 @@ def send_telegram_message(message):
     try:
         response = requests.post(url, json=payload, timeout=10)
         response.raise_for_status()
-        print(f"Message sent to Telegram: {message}")
+        logger.info(f"Message sent to Telegram: {message}")
     except requests.exceptions.RequestException as e:
-        print(f"Error sending message to Telegram: {e}")
+        logger.error(f"Error sending message to Telegram: {e}")
 
 if __name__ == '__main__':
     # Example usage for testing
