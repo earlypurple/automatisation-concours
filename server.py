@@ -108,9 +108,13 @@ class APIServer:
                     logger.error(f"Erreur du script: {error_output}")
                     db.update_opportunity_status(opp_id, 'failed', f"Erreur du script: {error_output}")
                     db.add_participation_history(opp_id, 'failed', job['profile_id'])
+                except json.JSONDecodeError as e:
+                    logger.error(f"Erreur de décodage JSON: {e}")
+                    db.update_opportunity_status(opp_id, 'failed', f"Erreur de décodage JSON: {e}")
+                    db.add_participation_history(opp_id, 'failed', job['profile_id'])
                 except Exception as e:
-                    logger.error(f"Erreur système: {e}")
-                    db.update_opportunity_status(opp_id, 'failed', f"Erreur système: {e}")
+                    logger.error(f"Erreur système inattendue: {e}")
+                    db.update_opportunity_status(opp_id, 'failed', f"Erreur système inattendue: {e}")
                     db.add_participation_history(opp_id, 'failed', job['profile_id'])
 
                 self.participation_queue.task_done()
@@ -155,7 +159,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, stats_provider=None, api_server=None, **kwargs):
         self.stats_provider = stats_provider
         self.api_server = api_server
-        self.sites_config = config_handler.get_sites_config()
+
         super().__init__(*args, **kwargs)
 
     def send_json_response(self, status_code, data):
@@ -171,128 +175,95 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         return json.loads(post_data)
 
-    def handle_api_get(self):
-        # --- Routes GET ---
-        if self.path == '/api/data':
-            active_profile = db.get_active_profile()
-            if not active_profile:
-                return self.send_json_response(404, {'error': 'No active profile found'})
+    def handle_request(self, method):
+        if self.path.startswith('/api/'):
+            for pattern, handler in self.routes.get(method, {}).items():
+                if re.match(pattern, self.path):
+                    return handler()
+            return self.send_json_response(404, {'error': 'Not Found'})
 
-            opportunities = db.get_opportunities(active_profile['id'])
-            stats = self.stats_provider() if self.stats_provider else {}
-            data = {'opportunities': opportunities, 'stats': stats}
-            self.send_json_response(200, data)
+        if method == 'GET' and self.path == '/settings':
+            self.path = '/settings.html'
 
-        elif self.path == '/api/profiles':
-            profiles = db.get_profiles()
-            self.send_json_response(200, profiles)
-
-        elif self.path == '/api/profiles/active':
-            profile = db.get_active_profile()
-            self.send_json_response(200, profile)
-
-        elif self.path == '/api/proxies':
-            proxies = config_handler.get_proxies()
-            self.send_json_response(200, proxies)
-
-
-        else:
-            self.send_json_response(404, {'error': 'Not Found'})
-
-    def handle_api_post(self):
-        # --- Routes POST ---
-        if self.path == '/api/participate':
-            self.handle_participation()
-
-        elif self.path == '/api/profiles':
-            body = self.get_json_body()
-            profile_id = db.create_profile(body['name'], body.get('email'), body.get('userData'), body.get('settings'))
-            self.send_json_response(201, {'id': profile_id, 'message': 'Profile created successfully'})
-
-        elif re.match(r'/api/profiles/\d+/activate', self.path):
-            profile_id = int(self.path.split('/')[-2])
-            db.set_active_profile(profile_id)
-            self.send_json_response(200, {'message': f'Profile {profile_id} activated'})
-
-        elif self.path == '/api/proxies':
-            logger.debug("--- Handling POST /api/proxies ---")
-            body = self.get_json_body()
-            logger.debug(f"Request body: {body}")
-            proxy_url = body.get('proxy_url')
-            if not proxy_url:
-                logger.warning("Proxy URL is missing")
-                return self.send_json_response(400, {'error': 'proxy_url is required'})
-
-            logger.info(f"Adding proxy: {proxy_url}")
-            result = config_handler.add_proxy(proxy_url)
-            logger.debug(f"add_proxy result: {result}")
-
-            if result:
-                self.send_json_response(201, {'message': 'Proxy added successfully'})
-            else:
-                self.send_json_response(409, {'error': 'Proxy already exists'})
-            logger.debug("--- Finished POST /api/proxies ---")
-
-        else:
-            self.send_json_response(404, {'error': 'Not Found'})
-
-    def handle_api_put(self):
-        if re.match(r'/api/profiles/\d+', self.path):
-            profile_id = int(self.path.split('/')[-1])
-            body = self.get_json_body()
-            db.update_profile(profile_id, body.get('name'), body.get('email'), body.get('userData'), body.get('settings'))
-            self.send_json_response(200, {'message': f'Profile {profile_id} updated'})
-        else:
-            self.send_json_response(404, {'error': 'Not Found'})
-
-    def handle_api_delete(self):
-        if re.match(r'/api/profiles/\d+', self.path):
-            profile_id = int(self.path.split('/')[-1])
-            try:
-                db.delete_profile(profile_id)
-                self.send_json_response(200, {'message': f'Profile {profile_id} deleted'})
-            except ValueError as e:
-                self.send_json_response(400, {'error': str(e)})
-
-        elif self.path == '/api/proxies':
-            body = self.get_json_body()
-            proxy_url = body.get('proxy_url')
-            if not proxy_url:
-                return self.send_json_response(400, {'error': 'proxy_url is required'})
-
-            if config_handler.delete_proxy(proxy_url):
-                self.send_json_response(200, {'message': 'Proxy deleted successfully'})
-            else:
-                self.send_json_response(404, {'error': 'Proxy not found'})
-        else:
-            self.send_json_response(404, {'error': 'Not Found'})
+        super().do_GET()
 
     def do_GET(self):
-        if self.path.startswith('/api/'):
-            self.handle_api_get()
-        elif self.path == '/settings':
-            self.path = '/settings.html'
-            super().do_GET()
-        else:
-            super().do_GET()
+        self.handle_request('GET')
 
     def do_POST(self):
-        if self.path.startswith('/api/'):
-            self.handle_api_post()
-        else:
-            self.send_json_response(404, {'error': 'Not Found'})
+        self.handle_request('POST')
 
     def do_PUT(self):
-        if self.path.startswith('/api/'):
-            self.handle_api_put()
-        else:
-            self.send_json_response(404, {'error': 'Not Found'})
+        self.handle_request('PUT')
 
     def do_DELETE(self):
-        if self.path.startswith('/api/'):
-            self.handle_api_delete()
+        self.handle_request('DELETE')
+
+    # --- Handlers ---
+    def handle_get_data(self):
+        active_profile = db.get_active_profile()
+        if not active_profile:
+            return self.send_json_response(404, {'error': 'No active profile found'})
+        opportunities = db.get_opportunities(active_profile['id'])
+        stats = self.stats_provider() if self.stats_provider else {}
+        data = {'opportunities': opportunities, 'stats': stats}
+        self.send_json_response(200, data)
+
+    def handle_get_profiles(self):
+        profiles = db.get_profiles()
+        self.send_json_response(200, profiles)
+
+    def handle_get_active_profile(self):
+        profile = db.get_active_profile()
+        self.send_json_response(200, profile)
+
+    def handle_get_proxies(self):
+        proxies = config_handler.get_proxies()
+        self.send_json_response(200, proxies)
+
+    def handle_create_profile(self):
+        body = self.get_json_body()
+        profile_id = db.create_profile(body['name'], body.get('email'), body.get('userData'), body.get('settings'))
+        self.send_json_response(201, {'id': profile_id, 'message': 'Profile created successfully'})
+
+    def handle_activate_profile(self):
+        profile_id = int(self.path.split('/')[-2])
+        db.set_active_profile(profile_id)
+        self.send_json_response(200, {'message': f'Profile {profile_id} activated'})
+
+    def handle_add_proxy(self):
+        body = self.get_json_body()
+        proxy_url = body.get('proxy_url')
+        if not proxy_url:
+            return self.send_json_response(400, {'error': 'proxy_url is required'})
+        if config_handler.add_proxy(proxy_url):
+            self.send_json_response(201, {'message': 'Proxy added successfully'})
         else:
-            self.send_json_response(404, {'error': 'Not Found'})
+            self.send_json_response(409, {'error': 'Proxy already exists'})
+
+    def handle_update_profile(self):
+        profile_id = int(self.path.split('/')[-1])
+        body = self.get_json_body()
+        db.update_profile(profile_id, body.get('name'), body.get('email'), body.get('userData'), body.get('settings'))
+        self.send_json_response(200, {'message': f'Profile {profile_id} updated'})
+
+    def handle_delete_profile(self):
+        profile_id = int(self.path.split('/')[-1])
+        try:
+            db.delete_profile(profile_id)
+            self.send_json_response(200, {'message': f'Profile {profile_id} deleted'})
+        except ValueError as e:
+            self.send_json_response(400, {'error': str(e)})
+
+    def handle_delete_proxy(self):
+        body = self.get_json_body()
+        proxy_url = body.get('proxy_url')
+        if not proxy_url:
+            return self.send_json_response(400, {'error': 'proxy_url is required'})
+        if config_handler.delete_proxy(proxy_url):
+            self.send_json_response(200, {'message': 'Proxy deleted successfully'})
+        else:
+            self.send_json_response(404, {'error': 'Proxy not found'})
 
     def handle_participation(self):
         body = self.get_json_body()

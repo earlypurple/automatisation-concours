@@ -38,7 +38,12 @@ def process_pending_confirmations(config):
     Traite toutes les opportunités en attente de confirmation par e-mail.
     """
     logger.info("Vérification des e-mails de confirmation en attente...")
-    pending_opps = [opp for opp in db.get_opportunities() if opp['status'] == 'email_confirmation_pending']
+    active_profile = db.get_active_profile()
+    if not active_profile:
+        logger.warning("Aucun profil actif trouvé pour la vérification des e-mails.")
+        return
+
+    pending_opps = db.get_pending_confirmation_opportunities(active_profile['id'])
 
     if not pending_opps:
         logger.info("Aucune confirmation en attente.")

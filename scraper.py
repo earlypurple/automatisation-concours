@@ -87,6 +87,8 @@ class SurveillanceUltraAvancee:
             logger.error(f"Erreur de scraping pour {site_key} avec Puppeteer: {e.stderr}")
         except json.JSONDecodeError:
             logger.error(f"Erreur de décodage JSON pour {site_key}.")
+        except (ValueError, TypeError) as e:
+            logger.error(f"Erreur de traitement des données pour {site_key}: {e}")
         except Exception as e:
             logger.error(f"Erreur inattendue pour {site_key}: {e}")
 
