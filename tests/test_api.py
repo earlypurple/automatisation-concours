@@ -1,10 +1,10 @@
 import unittest
 import requests
-import json
 import threading
 import time
 import os
 import sys
+import json
 
 # Add the root directory to the Python path to allow importing server and database
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -15,29 +15,22 @@ import database as db
 
 class TestApi(unittest.TestCase):
 
+    BASE_URL = "http://localhost:8081/api"
+
     @classmethod
     def setUpClass(cls):
-        # Initialiser la base de données pour les tests
         cls.db_file = 'test_surveillance.db'
-        logger.info(f"--- Test setup: Using database file: {os.path.abspath(cls.db_file)} ---")
         db.DB_FILE = cls.db_file
         if os.path.exists(cls.db_file):
-            logger.info("--- Test setup: Removing existing test database. ---")
             os.remove(cls.db_file)
 
-        logger.info("--- Test setup: Running migrations... ---")
         db.run_migrations()
-        logger.info("--- Test setup: Migrations finished. ---")
-
-        logger.info("--- Test setup: Initializing database (for default profile)... ---")
         db.init_db()
-        logger.info("--- Test setup: Database initialized. ---")
 
-        # Démarrer le serveur dans un thread séparé
         cls.api_server = server.APIServer(host='localhost', port=8081)
         cls.server_thread = threading.Thread(target=cls.api_server.run, daemon=True)
         cls.server_thread.start()
-        time.sleep(1) # Laisser le temps au serveur de démarrer
+        time.sleep(1)
 
     @classmethod
     def tearDownClass(cls):
@@ -46,46 +39,59 @@ class TestApi(unittest.TestCase):
             os.remove(cls.db_file)
 
     def setUp(self):
-        # Nettoyer la base de données avant chaque test
         with db.db_cursor() as cur:
-            # Clear data, but not profiles, to let init_db manage the default
             cur.execute("DELETE FROM opportunities")
             cur.execute("DELETE FROM participation_history")
-        # No need to call init_db() here again, setUpClass handles it.
+            cur.execute("DELETE FROM profiles WHERE id > 1")
+            cur.execute("UPDATE profiles SET is_active = 1 WHERE id = 1")
 
+    # --- Helper Methods ---
+    def _api_get(self, endpoint):
+        return requests.get(f"{self.BASE_URL}{endpoint}")
+
+    def _api_post(self, endpoint, data=None):
+        return requests.post(f"{self.BASE_URL}{endpoint}", json=data)
+
+    def _api_put(self, endpoint, data=None):
+        return requests.put(f"{self.BASE_URL}{endpoint}", json=data)
+
+    def _api_delete(self, endpoint):
+        return requests.delete(f"{self.BASE_URL}{endpoint}")
+
+    def _create_profile(self, name="Test Profile"):
+        data = {
+            "name": name,
+            "email": f"{name.lower().replace(' ', '_')}@example.com",
+            "userData": json.dumps({"name": name})
+        }
+        response = self._api_post("/profiles", data)
+        self.assertEqual(response.status_code, 201)
+        return response.json()
+
+    # --- Tests ---
     def test_01_profiles_api_lifecycle(self):
-        base_url = "http://localhost:8081/api/profiles"
-
-        # 1. GET initial profiles (should be just the default one)
-        response = requests.get(base_url)
+        # 1. GET initial profiles
+        response = self._api_get("/profiles")
         self.assertEqual(response.status_code, 200)
         profiles = response.json()
         self.assertEqual(len(profiles), 1)
         self.assertEqual(profiles[0]['name'], 'Défaut')
 
         # 2. CREATE a new profile
-        new_profile_data = {
-            "name": "Test Profile",
-            "email": "test@example.com",
-            "userData": {"name": "Test User"}
-        }
-        response = requests.post(base_url, json=new_profile_data)
-        self.assertEqual(response.status_code, 201)
-        new_profile = response.json()
-        self.assertIn('id', new_profile)
+        new_profile = self._create_profile("Test Profile")
         profile_id = new_profile['id']
 
-        # 3. GET profiles again (should be two now)
-        response = requests.get(base_url)
+        # 3. GET profiles again
+        response = self._api_get("/profiles")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()), 2)
 
         # 4. ACTIVATE the new profile
-        response = requests.post(f"{base_url}/{profile_id}/activate")
+        response = self._api_post(f"/profiles/{profile_id}/activate")
         self.assertEqual(response.status_code, 200)
 
         # 5. GET active profile
-        response = requests.get(f"{base_url}/active")
+        response = self._api_get("/profiles/active")
         self.assertEqual(response.status_code, 200)
         active_profile = response.json()
         self.assertEqual(active_profile['id'], profile_id)
@@ -93,34 +99,32 @@ class TestApi(unittest.TestCase):
 
         # 6. UPDATE the profile
         update_data = {"name": "Updated Profile Name"}
-        response = requests.put(f"{base_url}/{profile_id}", json=update_data)
+        response = self._api_put(f"/profiles/{profile_id}", update_data)
         self.assertEqual(response.status_code, 200)
 
         # Verify update
-        response = requests.get(f"{base_url}/active")
+        response = self._api_get("/profiles/active")
         self.assertEqual(response.json()['name'], "Updated Profile Name")
 
         # 7. DELETE the profile
-        response = requests.delete(f"{base_url}/{profile_id}")
+        response = self._api_delete(f"/profiles/{profile_id}")
         self.assertEqual(response.status_code, 200)
 
-        # 8. GET profiles again (should be back to one)
-        response = requests.get(base_url)
+        # 8. GET profiles again
+        response = self._api_get("/profiles")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()), 1)
 
     def test_02_data_is_profile_specific(self):
-        base_url = "http://localhost:8081/api"
-
-        # Get the default profile created by setUp
-        default_profile_id = requests.get(f"{base_url}/profiles/active").json()['id']
+        # Get the default profile ID
+        default_profile_id = self._api_get("/profiles/active").json()['id']
 
         # Create a second profile
-        profile2_res = requests.post(f"{base_url}/profiles", json={"name": "Profile 2"})
-        profile2_id = profile2_res.json()['id']
+        profile2 = self._create_profile("Profile 2")
+        profile2_id = profile2['id']
 
         # Make sure default profile is active
-        requests.post(f"{base_url}/profiles/{default_profile_id}/activate")
+        self._api_post(f"/profiles/{default_profile_id}/activate")
 
         # Add an opportunity for the default profile
         with db.db_cursor() as cur:
@@ -128,19 +132,18 @@ class TestApi(unittest.TestCase):
                         ('Opp 1', 'site1', 'url1', '2023-01-01', default_profile_id))
 
         # API should return one opportunity for the active (default) profile
-        response = requests.get(f"{base_url}/data")
+        response = self._api_get("/data")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()['opportunities']), 1)
         self.assertEqual(response.json()['opportunities'][0]['title'], 'Opp 1')
 
         # Activate profile 2
-        requests.post(f"{base_url}/profiles/{profile2_id}/activate")
+        self._api_post(f"/profiles/{profile2_id}/activate")
 
         # API should now return zero opportunities for the new active profile
-        response = requests.get(f"{base_url}/data")
+        response = self._api_get("/data")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()['opportunities']), 0)
-
 
 if __name__ == '__main__':
     unittest.main()

@@ -155,11 +155,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, stats_provider=None, api_server=None, **kwargs):
         self.stats_provider = stats_provider
         self.api_server = api_server
-        try:
-            with open('sites_config.json', 'r', encoding='utf-8') as f:
-                self.sites_config = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.sites_config = {}
+        self.sites_config = config_handler.get_sites_config()
         super().__init__(*args, **kwargs)
 
     def send_json_response(self, status_code, data):
