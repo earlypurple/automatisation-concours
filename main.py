@@ -8,16 +8,24 @@ import schedule
 from scraper import SurveillanceUltraAvancee
 from server import APIServer
 
+import email_handler
+
 def run_scheduler(surv_instance):
-    """Runs the scheduled tasks."""
+    """Runs the scheduled tasks for scraping."""
     scraping_config = surv_instance.config.get('scraping', {})
     interval = scraping_config.get('interval_minutes', 60)
-    start_time = scraping_config.get('start_time', "09:00")
-
     schedule.every(interval).minutes.do(surv_instance.run_surveillance_complete)
-    schedule.every().day.at(start_time).do(surv_instance.run_surveillance_complete)
+    print("Planificateur de scraping démarré.")
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
-    print("Planificateur démarré.")
+def run_email_scheduler(config):
+    """Runs the scheduled tasks for email checking."""
+    email_config = config.get('email_handler', {})
+    interval = email_config.get('check_interval_minutes', 15)
+    schedule.every(interval).minutes.do(email_handler.process_pending_confirmations, config=config)
+    print("Planificateur d'e-mails démarré.")
     while True:
         schedule.run_pending()
         time.sleep(1)
@@ -29,9 +37,12 @@ if __name__ == "__main__":
     # 2. Lancer la surveillance initiale
     surv.run_surveillance_complete()
 
-    # 3. Démarrer le planificateur dans un thread séparé
-    scheduler_thread = threading.Thread(target=run_scheduler, args=(surv,), daemon=True)
-    scheduler_thread.start()
+    # 3. Démarrer les planificateurs dans des threads séparés
+    scraping_scheduler_thread = threading.Thread(target=run_scheduler, args=(surv,), daemon=True)
+    scraping_scheduler_thread.start()
+
+    email_scheduler_thread = threading.Thread(target=run_email_scheduler, args=(surv.config,), daemon=True)
+    email_scheduler_thread.start()
 
     # 4. Démarrer le serveur d'API
     # Le serveur a besoin d'accéder aux stats mises à jour par le scraper

@@ -44,6 +44,18 @@
             }
         ]
     },
+    "captcha_solver": {
+        "enabled": false,
+        "api_key": "",
+        "provider": "2captcha"
+    },
+    "email_handler": {
+        "enabled": false,
+        "host": "imap.example.com",
+        "user": "user@example.com",
+        "password": "password",
+        "check_interval_minutes": 15
+    },
     "export": {
         "auto_backup": true,
         "backup_interval_hours": 24,

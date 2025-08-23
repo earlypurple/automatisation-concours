@@ -13,7 +13,7 @@ class EmailReportManager {
             includeCharts: true,
             includePredictions: true
         };
-        this.init();
+        // this.init(); // Ne pas appeler init automatiquement pour les tests
     }
 
     init() {

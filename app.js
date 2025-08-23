@@ -36,6 +36,10 @@ class SurveillanceApp {
         const searchInput = document.querySelector('.search-bar');
         searchInput?.addEventListener('input', (e) => this.renderOpportunities());
 
+        // Tri
+        const sortSelect = document.getElementById('sort-select');
+        sortSelect?.addEventListener('change', () => this.renderOpportunities());
+
         // Filtres
         document.querySelectorAll('.filter-tag').forEach(tag => {
             tag.addEventListener('click', () => this.toggleFilter(tag));
@@ -49,14 +53,26 @@ class SurveillanceApp {
 
         // Event delegation pour les actions sur les opportunités
         const grid = document.getElementById('opportunitiesGrid');
-        grid.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-secondary')) {
-                const card = e.target.closest('.opportunity');
+        grid.addEventListener('click', async (e) => {
+            const button = e.target.closest('button, a');
+            if (!button) return;
+
+            const card = e.target.closest('.opportunity');
+            if (!card) return;
+
+            if (button.matches('.btn-primary')) { // Participer
+                e.preventDefault();
+                const oppId = card.getAttribute('data-id');
+                const url = button.href;
+                await this.participate(oppId, url);
+            } else if (button.matches('.btn-secondary')) { // Copier
                 const url = card.querySelector('a').href;
                 const title = card.querySelector('h3').textContent;
                 this.copyLink(url, title);
-            }
-            if (e.target.closest('.checkbox')) {
+            } else if (button.matches('.btn-details')) { // Détails
+                const logDetails = card.querySelector('.log-details');
+                logDetails.style.display = logDetails.style.display === 'none' ? 'block' : 'none';
+            } else if (e.target.closest('.checkbox')) { // Checkbox
                 this.toggleParticipation(e.target.closest('.checkbox'));
             }
         });
@@ -105,9 +121,9 @@ class SurveillanceApp {
         const grid = document.getElementById('opportunitiesGrid');
         grid.innerHTML = '';
         const search = document.querySelector('.search-bar')?.value || '';
-        const filteredOpps = this.filterOpportunities(search);
+        const sortedAndFilteredOpps = this.sortAndFilterOpportunities(search);
 
-        filteredOpps.forEach(opp => {
+        sortedAndFilteredOpps.forEach(opp => {
             const card = this.createOpportunityCard(opp);
             grid.appendChild(card);
         });
@@ -117,21 +133,40 @@ class SurveillanceApp {
         const card = document.createElement('div');
         card.className = `opportunity ${opp.priority >= 5 ? 'priority-5' : ''} ${opp.type} fade-in`;
         card.setAttribute('data-value', opp.value);
+        card.setAttribute('data-id', opp.id);
+
+        const statusText = {
+            pending: 'En attente',
+            processing: 'En cours',
+            success: 'Succès',
+            failed: 'Échec',
+            captcha_required: 'CAPTCHA Requis',
+            email_confirmation_pending: 'Attente Email'
+        }[opp.status] || opp.status;
 
         card.innerHTML = `
-            ${opp.priority >= 5 ? '<div class="priority-badge">PRIORITÉ 5</div>' : ''}
+            <div class="opportunity-header">
+                ${opp.priority >= 5 ? '<div class="priority-badge">PRIORITÉ 5</div>' : ''}
+                <div class="status-badge status-${opp.status}">${statusText}</div>
+            </div>
             <h3>${opp.title}</h3>
             <p>${opp.description}</p>
             <div class="value-box">
                 <strong>Valeur :</strong> ${opp.value}€
+                <br><strong>Score :</strong> ${opp.score ? opp.score.toFixed(2) : 'N/A'}
                 <br><strong>Expire :</strong> ${new Date(opp.expires_at).toLocaleDateString()}
             </div>
             <div class="actions">
                 <a href="${opp.url}" target="_blank" class="btn btn-primary pulse">🚀 Participer</a>
                 <button class="btn btn-secondary">📋 Copier</button>
+                <button class="btn btn-info btn-details">Détails</button>
+            </div>
+            <div class="log-details" style="display: none;">
+                <h4>Logs :</h4>
+                <pre>${opp.log || 'Aucun log disponible.'}</pre>
             </div>
             <div class="participation-tracker">
-                <div class="checkbox"></div>
+                <div class="checkbox ${opp.status === 'success' ? 'checked' : ''}"></div>
                 <span>Participé</span>
             </div>
         `;
@@ -139,29 +174,43 @@ class SurveillanceApp {
         return card;
     }
 
-    filterOpportunities(search) {
-        let filtered = [...this.opportunities];
+    sortAndFilterOpportunities(search) {
+        let processed = [...this.opportunities];
         const activeFilter = this.filters.values().next().value;
+        const sortBy = document.getElementById('sort-select')?.value || 'score';
 
-        // Filtres actifs
+        // 1. Filtrage
         if (activeFilter && activeFilter !== 'all') {
             if (activeFilter === 'priority-5') {
-                 filtered = filtered.filter(opp => opp.priority >= 5);
+                 processed = processed.filter(opp => opp.priority >= 5);
             } else {
-                 filtered = filtered.filter(opp => opp.type === activeFilter);
+                 processed = processed.filter(opp => opp.type === activeFilter);
             }
         }
 
-        // Recherche
+        // 2. Recherche
         if (search) {
             const searchLower = search.toLowerCase();
-            filtered = filtered.filter(opp =>
+            processed = processed.filter(opp =>
                 opp.title.toLowerCase().includes(searchLower) ||
                 opp.description.toLowerCase().includes(searchLower)
             );
         }
 
-        return filtered;
+        // 3. Tri
+        processed.sort((a, b) => {
+            switch (sortBy) {
+                case 'value':
+                    return (b.value || 0) - (a.value || 0);
+                case 'date':
+                    return new Date(b.detected_at) - new Date(a.detected_at);
+                case 'score':
+                default:
+                    return (b.score || 0) - (a.score || 0);
+            }
+        });
+
+        return processed;
     }
 
     toggleFilter(tag) {
@@ -198,6 +247,44 @@ class SurveillanceApp {
         } catch (err) {
             this.showNotification('Erreur de copie', 'error');
         }
+    }
+
+    async participate(id, url) {
+        const userData = this.getUserData();
+        if (!userData.email) {
+            this.showNotification('Veuillez configurer vos informations utilisateur.', 'error');
+            // Idéalement, ouvrir un modal de configuration ici
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/participate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: parseInt(id), url, userData })
+            });
+
+            const result = await response.json();
+
+            if (response.status === 202) {
+                this.showNotification('Participation mise en file d\'attente !', 'success');
+                this.loadData(); // Recharger pour voir le statut mis à jour
+            } else {
+                throw new Error(result.error || 'Erreur inconnue');
+            }
+        } catch (error) {
+            this.showNotification(`Erreur de participation: ${error.message}`, 'error');
+        }
+    }
+
+    getUserData() {
+        // Pour l'instant, hardcodé. Idéalement, lu depuis localStorage ou un formulaire.
+        return {
+            name: "Jean Dupont",
+            email: "jean.dupont.test@email.com",
+            phone: "0123456789",
+            address: "123 Rue de Paris, 75001 Paris"
+        };
     }
 
     toggleParticipation(checkbox) {
