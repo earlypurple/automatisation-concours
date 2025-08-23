@@ -73,5 +73,14 @@ def train_and_save_model():
     joblib.dump(model, 'opportunity_model.joblib')
     print("Modèle sauvegardé dans 'opportunity_model.joblib'")
 
+    # Recharger le modèle dans l'application principale pour une utilisation immédiate
+    # L'importation est faite ici pour éviter les dépendances circulaires
+    try:
+        import main
+        main.reload_model()
+    except ImportError:
+        # Cela peut se produire si le script est exécuté de manière autonome
+        print("⚠️  Impossible de recharger le modèle automatiquement. Un redémarrage de l'application est nécessaire.")
+
 if __name__ == '__main__':
     train_and_save_model()
