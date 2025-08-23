@@ -63,5 +63,119 @@
             "json",
             "csv"
         ]
+    },
+    "sites": {
+        "sephora": {
+            "url": "https://www.sephora.fr/beauty-insider/",
+            "type": "echantillons",
+            "priority": 5,
+            "auto_fill": true,
+            "selectors": {
+                "product": ".product-item",
+                "title": "h2.product-name",
+                "value": ".price"
+            }
+        },
+        "loccitane": {
+            "url": "https://fr.loccitane.com/",
+            "type": "echantillons",
+            "priority": 5,
+            "auto_fill": true,
+            "selectors": {
+                "product": ".product-tile",
+                "title": ".product-name",
+                "value": ".product-price"
+            }
+        },
+        "shopmium": {
+            "url": "https://shopmium.com/fr/",
+            "type": "cashback",
+            "priority": 4,
+            "auto_fill": false,
+            "selectors": {
+                "offer": ".offer-item",
+                "title": ".offer-title",
+                "value": ".cashback-amount"
+            }
+        },
+        "casino_concours": {
+            "url": "https://www.casino.fr/",
+            "type": "concours",
+            "priority": 5,
+            "auto_fill": true,
+            "selectors": {
+                "contest": ".contest-item",
+                "title": ".contest-title",
+                "value": ".prize-value"
+            }
+        },
+        "intermarche_jeu": {
+            "url": "https://www.intermarche.com/",
+            "type": "concours",
+            "priority": 5,
+            "auto_fill": true,
+            "selectors": {
+                "game": ".game-item",
+                "title": ".game-title",
+                "value": ".prize-description"
+            }
+        },
+        "marionnaud": {
+            "url": "https://www.marionnaud.fr/",
+            "type": "echantillons",
+            "priority": 4,
+            "auto_fill": true,
+            "selectors": {
+                "sample": ".sample-item",
+                "title": ".sample-name",
+                "brand": ".brand-name",
+                "value": ".price"
+            }
+        },
+        "carrefour": {
+            "url": "https://www.carrefour.fr/",
+            "type": "cashback",
+            "priority": 4,
+            "auto_fill": true,
+            "selectors": {
+                "promo": ".promo-item",
+                "title": ".promo-title",
+                "value": ".refund-amount"
+            }
+        },
+        "nocibe": {
+            "url": "https://www.nocibe.fr/",
+            "type": "echantillons",
+            "priority": 4,
+            "auto_fill": true,
+            "selectors": {
+                "gift": ".gift-item",
+                "title": ".gift-name",
+                "value": ".gift-value"
+            }
+        },
+        "auchan": {
+            "url": "https://www.auchan.fr/",
+            "type": "concours",
+            "priority": 5,
+            "auto_fill": true,
+            "selectors": {
+                "contest": ".contest-block",
+                "title": ".contest-name",
+                "endDate": ".end-date",
+                "value": ".contest-prize"
+            }
+        },
+        "leclerc": {
+            "url": "https://www.e.leclerc/",
+            "type": "cashback",
+            "priority": 4,
+            "auto_fill": true,
+            "selectors": {
+                "offer": ".ticket-leclerc",
+                "title": ".offer-title",
+                "value": ".cashback-value"
+            }
+        }
     }
 }

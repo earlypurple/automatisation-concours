@@ -32,6 +32,12 @@ class ConfigHandler:
         proxies_config = self.config.get('proxies', {})
         return proxies_config.get('list', [])
 
+    def get_sites_config(self):
+        return self.config.get('sites', {})
+
+    def get_site_config(self, site_key):
+        return self.config.get('sites', {}).get(site_key)
+
     def add_proxy(self, proxy_url):
         with self.lock:
             if 'proxies' not in self.config:
