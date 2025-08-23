@@ -9,7 +9,11 @@ import time
 import database as db
 import subprocess
 import random
+import re
 from urllib.parse import urlparse
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class APIServer:
     def __init__(self, host='localhost', port=8080, stats_provider=None):
@@ -18,6 +22,7 @@ class APIServer:
         self.stats_provider = stats_provider
         self.server = None
         self.proxy_index = 0
+        self.proxies = []
 
         # --- Participation Queue ---
         self.participation_queue = queue.Queue()
@@ -30,19 +35,26 @@ class APIServer:
             self.config = {}
         # --------------------------
 
+        # Load proxies from environment variables
+        proxies_list_str = os.getenv("PROXIES_LIST", "[]")
+        try:
+            self.proxies = json.loads(proxies_list_str)
+        except json.JSONDecodeError:
+            print("Erreur de décodage de la variable d'environnement PROXIES_LIST.")
+            self.proxies = []
+
     def get_proxy(self):
         proxy_config = self.config.get('proxies', {})
-        if not proxy_config.get("enabled") or not proxy_config.get("list"):
+        if not proxy_config.get("enabled") or not self.proxies:
             return None
 
-        proxies = proxy_config["list"]
         mode = proxy_config.get("rotation_mode", "random")
 
         if mode == "random":
-            return random.choice(proxies)
+            return random.choice(self.proxies)
         elif mode == "sequential":
-            proxy = proxies[self.proxy_index]
-            self.proxy_index = (self.proxy_index + 1) % len(proxies)
+            proxy = self.proxies[self.proxy_index]
+            self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
             return proxy
         return None
 
@@ -133,6 +145,33 @@ class APIServer:
             self.server.server_close()
             print("Serveur arrêté.")
 
+def get_user_data_from_js():
+    try:
+        with open('js/auth.js', 'r', encoding='utf-8') as f:
+            content = f.read()
+            name_match = re.search(r"const userName = '(.*)';", content)
+            email_match = re.search(r"const userEmail = '(.*)';", content)
+            return {
+                'name': name_match.group(1) if name_match else '',
+                'email': email_match.group(1) if email_match else ''
+            }
+    except FileNotFoundError:
+        return {'name': '', 'email': ''}
+
+def save_user_data_to_js(name, email):
+    try:
+        with open('js/auth.js', 'r+', encoding='utf-8') as f:
+            content = f.read()
+            content = re.sub(r"const userName = '.*';", f"const userName = '{name}';", content)
+            content = re.sub(r"const userEmail = '.*';", f"const userEmail = '{email}';", content)
+            f.seek(0)
+            f.write(content)
+            f.truncate()
+    except FileNotFoundError:
+        # If the file doesn't exist, create it with the new data
+        with open('js/auth.js', 'w', encoding='utf-8') as f:
+            f.write(f"const userName = '{name}';\nconst userEmail = '{email}';\n")
+
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, stats_provider=None, api_server=None, **kwargs):
         self.stats_provider = stats_provider
@@ -157,6 +196,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 'stats': stats
             }
             self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+        elif self.path == '/api/settings':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+
+            user_data = get_user_data_from_js()
+            with open('config.json', 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+
+            settings = {
+                'userData': user_data,
+                'config': config_data
+            }
+            self.wfile.write(json.dumps(settings, ensure_ascii=False).encode('utf-8'))
+
+        elif self.path == '/settings':
+            self.path = '/settings.html'
+            super().do_GET()
         else:
             super().do_GET()
 
@@ -206,6 +263,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps({'success': True, 'message': 'Participation en file d\'attente.'}).encode('utf-8'))
+
+        elif self.path == '/api/settings':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            settings = json.loads(post_data)
+
+            # Save user data to js/auth.js
+            user_data = settings.get('userData', {})
+            save_user_data_to_js(user_data.get('name', ''), user_data.get('email', ''))
+
+            # Save config data to config.json
+            with open('config.json', 'w', encoding='utf-8') as f:
+                json.dump(settings.get('config', {}), f, indent=4)
+
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({'success': True, 'message': 'Paramètres enregistrés avec succès.'}).encode('utf-8'))
+
         else:
             self.send_response(404)
             self.end_headers()

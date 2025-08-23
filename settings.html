@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Paramètres - Surveillance Gratuite Pro</title>
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body class="fade-in">
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ Paramètres</h1>
+            <p style="opacity:.8">Gérez la configuration de votre application.</p>
+        </div>
+
+        <div class="settings-form">
+            <div class="form-section">
+                <h2>Informations Utilisateur</h2>
+                <div class="form-group">
+                    <label for="userName">Nom</label>
+                    <input type="text" id="userName" name="userName" placeholder="Votre nom complet">
+                </div>
+                <div class="form-group">
+                    <label for="userEmail">E-mail</label>
+                    <input type="email" id="userEmail" name="userEmail" placeholder="Votre adresse e-mail">
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Notifications</h2>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="desktopNotifications" name="desktopNotifications">
+                        Notifications de bureau
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="browserNotifications" name="browserNotifications">
+                        Notifications du navigateur
+                    </label>
+                </div>
+                 <div class="form-group">
+                    <label for="minPriority">Priorité minimale pour les notifications</label>
+                    <input type="number" id="minPriority" name="minPriority" min="1" max="5" value="4">
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Scraping</h2>
+                <div class="form-group">
+                    <label for="scrapingInterval">Intervalle de scraping (minutes)</label>
+                    <input type="number" id="scrapingInterval" name="scrapingInterval" min="1" value="60">
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2>Participation Automatique</h2>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="autoParticipationEnabled" name="autoParticipationEnabled">
+                        Activer la participation automatique
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="maxPerDay">Participations max par jour</label>
+                    <input type="number" id="maxPerDay" name="maxPerDay" min="1" value="50">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button id="save-btn" class="btn btn-primary">Enregistrer les modifications</button>
+                <a href="/" class="btn btn-secondary">Retour au Dashboard</a>
+            </div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script src="js/settings.js"></script>
+</body>
+</html>
