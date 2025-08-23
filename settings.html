@@ -66,6 +66,24 @@
             </div>
 
             <div class="form-section">
+                <h2>Notifications Telegram</h2>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="telegramEnabled">
+                        Activer les notifications Telegram
+                    </label>
+                </div>
+                <div class="form-group">
+                    <label for="telegramBotToken">Token du Bot Telegram</label>
+                    <input type="text" id="telegramBotToken" placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11">
+                </div>
+                <div class="form-group">
+                    <label for="telegramChatId">ID de Discussion Telegram</label>
+                    <input type="text" id="telegramChatId" placeholder="Votre ID de discussion">
+                </div>
+            </div>
+
+            <div class="form-section">
                 <h2>Scraping</h2>
                 <div class="form-group">
                     <label for="scrapingInterval">Intervalle de scraping (minutes)</label>
@@ -90,6 +108,24 @@
             <div class="form-actions">
                 <button id="save-btn" class="btn btn-primary">Enregistrer les modifications</button>
                 <a href="/" class="btn btn-secondary">Retour au Dashboard</a>
+            </div>
+        </div>
+
+        <!-- Section de gestion des proxies -->
+        <div id="proxy-management" class="settings-form">
+            <h2>Gestion des Proxies</h2>
+            <div class="form-section">
+                <div class="form-group">
+                    <label for="proxy-input">Ajouter un proxy</label>
+                    <input type="text" id="proxy-input" placeholder="http://user:pass@host:port">
+                </div>
+                <button id="add-proxy-btn" class="btn btn-success">Ajouter</button>
+            </div>
+            <div id="proxy-list-container">
+                <h3>Proxies actuels</h3>
+                <ul id="proxy-list">
+                    <!-- Les proxies seront injectés ici par JS -->
+                </ul>
             </div>
         </div>
     </div>

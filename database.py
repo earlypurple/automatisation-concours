@@ -95,8 +95,17 @@ def init_db():
 import datetime
 
 def add_opportunity(opp, profile_id):
-    """Adds a new opportunity to the database for a specific profile."""
+    """
+    Adds a new opportunity to the database if it doesn't already exist for the profile.
+    Returns True if the opportunity was added, False otherwise.
+    """
     with db_cursor() as cur:
+        # Check if an opportunity with the same URL already exists for this profile
+        cur.execute("SELECT id FROM opportunities WHERE url = ? AND profile_id = ?", (opp['url'], profile_id))
+        if cur.fetchone():
+            return False  # Opportunity already exists
+
+        # If not, insert it
         cur.execute('''
             INSERT INTO opportunities (site, title, description, url, type, priority, value, auto_fill, detected_at, expires_at, status, entries_count, time_left, score, profile_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
@@ -116,6 +125,7 @@ def add_opportunity(opp, profile_id):
             opp.get('time_left'),
             profile_id
         ))
+        return True
 
 def update_opportunity_status(opportunity_id, status, log_message=None):
     """Updates the status and log of an opportunity."""

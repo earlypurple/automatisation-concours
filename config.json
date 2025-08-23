@@ -14,11 +14,21 @@
     "notifications": {
         "desktop": true,
         "browser": true,
-        "min_priority": 4
+        "min_priority": 4,
+        "telegram": {
+            "enabled": false,
+            "bot_token": "",
+            "chat_id": ""
+        }
     },
     "filters": {
         "min_value": 10,
-        "categories": ["echantillons", "concours", "cashback", "tests"],
+        "categories": [
+            "echantillons",
+            "concours",
+            "cashback",
+            "tests"
+        ],
         "excluded_domains": []
     },
     "auto__participation": {
@@ -49,6 +59,9 @@
     "export": {
         "auto_backup": true,
         "backup_interval_hours": 24,
-        "formats": ["json", "csv"]
+        "formats": [
+            "json",
+            "csv"
+        ]
     }
 }

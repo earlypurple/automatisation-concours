@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import threading
 import re
 import database as db
+from telegram_notifier import send_telegram_message
 import os
 from dotenv import load_dotenv
 import subprocess
@@ -74,7 +75,17 @@ class SurveillanceUltraAvancee:
                     'entries_count': entries_count,
                     'time_left': item.get('time_left')
                 }
-                db.add_opportunity(opportunity, profile_id)
+                if db.add_opportunity(opportunity, profile_id):
+                    # Send notification if the opportunity is new
+                    message = (
+                        f"🎉 *Nouvelle Opportunité !* 🎉\n\n"
+                        f"*{opportunity['title']}*\n\n"
+                        f"**Valeur:** {opportunity['value']}€\n"
+                        f"**Site:** {opportunity['site']}\n\n"
+                        f"[Voir l'opportunité]({opportunity['url']})"
+                    )
+                    send_telegram_message(message)
+
                 with self.lock:
                     self.stats['today_new'] += 1
         except subprocess.CalledProcessError as e:
