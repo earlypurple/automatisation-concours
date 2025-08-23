@@ -14,6 +14,8 @@ import train_model
 from logger import logger
 
 import email_handler
+import analytics
+import database as db
 
 # --- Gestion du Modèle d'IA ---
 MODEL_PATH = 'opportunity_model.joblib'
@@ -116,10 +118,19 @@ if __name__ == "__main__":
     training_scheduler_thread.start()
 
     # 4. Démarrer le serveur d'API
-    # Le serveur a besoin d'accéder aux stats mises à jour par le scraper
+    # Le serveur utilise maintenant le nouveau fournisseur de statistiques
+    def analytics_provider():
+        active_profile = db.get_active_profile()
+        profile_id = active_profile['id'] if active_profile else None
+        # On combine les anciennes et les nouvelles stats pour ne rien casser
+        new_stats = analytics.get_analytics_data(profile_id)
+        # surv.stats contient des infos temps-réel que l'on veut peut-être garder
+        combined_stats = {**surv.stats, **new_stats}
+        return combined_stats
+
     server = APIServer(
         host=surv.config.get('server', {}).get('host', 'localhost'),
         port=surv.config.get('server', {}).get('port', 8080),
-        stats_provider=lambda: surv.stats
+        stats_provider=analytics_provider
     )
     server.run()
