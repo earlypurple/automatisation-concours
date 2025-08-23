@@ -40,3 +40,26 @@
 .read-the-docs {
   color: #888;
 }
+
+.tabs {
+  margin-bottom: 1rem;
+}
+
+.tabs button {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  background-color: #f0f0f0;
+  margin-right: 0.5rem;
+}
+
+.tabs button.active {
+  background-color: #fff;
+  border-bottom-color: #fff;
+}
+
+.tab-content {
+  padding: 1rem;
+  border: 1px solid #ccc;
+  border-top: none;
+}

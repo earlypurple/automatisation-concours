@@ -168,12 +168,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 r'/api/profiles$': self.handle_get_profiles,
                 r'/api/profiles/active$': self.handle_get_active_profile,
                 r'/api/proxies$': self.handle_get_proxies,
+                r'/api/config$': self.handle_get_config,
             },
             'POST': {
                 r'/api/profiles$': self.handle_create_profile,
                 r'/api/proxies$': self.handle_add_proxy,
                 r'/api/participate$': self.handle_participation,
                 r'/api/profiles/\d+/activate$': self.handle_activate_profile,
+                r'/api/config$': self.handle_save_config,
             },
             'PUT': {
                 r'/api/profiles/\d+$': self.handle_update_profile,
@@ -257,6 +259,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def handle_get_proxies(self):
         proxies = config_handler.get_proxies()
         self.send_json_response(200, proxies)
+
+    def handle_get_config(self):
+        config = config_handler.get_config()
+        self.send_json_response(200, config)
+
+    def handle_save_config(self):
+        body = self.get_json_body()
+        config_handler.save_config(body)
+        self.send_json_response(200, {'message': 'Configuration saved successfully'})
 
     def handle_create_profile(self):
         body = self.get_json_body()
