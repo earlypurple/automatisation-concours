@@ -1,5 +1,6 @@
 import http.server
 import socketserver
+import socket
 import json
 import os
 import webbrowser
@@ -12,6 +13,7 @@ import random
 import re
 from urllib.parse import urlparse
 from dotenv import load_dotenv
+from config_handler import config_handler
 
 load_dotenv()
 
@@ -22,28 +24,23 @@ class APIServer:
         self.stats_provider = stats_provider
         self.server = None
         self.proxy_index = 0
-        self.proxies = []
+
+        # --- Config & Proxies ---
+        self.config = config_handler.get_config()
+        self.proxies = config_handler.get_proxies()
+        # --------------------------
 
         # --- Participation Queue ---
         self.participation_queue = queue.Queue()
         self.stop_worker_event = threading.Event()
         self.worker_thread = None
-        try:
-            with open('config.json', 'r', encoding='utf-8') as f:
-                self.config = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.config = {}
         # --------------------------
 
-        # Load proxies from environment variables
-        proxies_list_str = os.getenv("PROXIES_LIST", "[]")
-        try:
-            self.proxies = json.loads(proxies_list_str)
-        except json.JSONDecodeError:
-            print("Erreur de décodage de la variable d'environnement PROXIES_LIST.")
-            self.proxies = []
-
     def get_proxy(self):
+        # Refresh config and proxies in case they've been updated
+        self.config = config_handler.get_config()
+        self.proxies = config_handler.get_proxies()
+
         proxy_config = self.config.get('proxies', {})
         if not proxy_config.get("enabled") or not self.proxies:
             return None
@@ -53,6 +50,8 @@ class APIServer:
         if mode == "random":
             return random.choice(self.proxies)
         elif mode == "sequential":
+            if not self.proxies: # Extra check
+                return None
             proxy = self.proxies[self.proxy_index]
             self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
             return proxy
@@ -128,6 +127,7 @@ class APIServer:
         def handler_factory(*args, **kwargs):
             return Handler(stats_provider=self.stats_provider, api_server=self, *args, **kwargs)
 
+        socketserver.TCPServer.allow_reuse_address = True
         self.server = socketserver.TCPServer((self.host, self.port), handler_factory)
 
         threading.Timer(1, lambda: webbrowser.open(f'http://{self.host}:{self.port}')).start()
@@ -162,8 +162,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def send_json_response(self, status_code, data):
         self.send_response(status_code)
         self.send_header('Content-type', 'application/json')
+        encoded_data = json.dumps(data, ensure_ascii=False).encode('utf-8')
+        self.send_header('Content-Length', str(len(encoded_data)))
         self.end_headers()
-        self.wfile.write(json.dumps(data, ensure_ascii=False).encode('utf-8'))
+        self.wfile.write(encoded_data)
 
     def get_json_body(self):
         content_length = int(self.headers['Content-Length'])
@@ -190,6 +192,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             profile = db.get_active_profile()
             self.send_json_response(200, profile)
 
+        elif self.path == '/api/proxies':
+            proxies = config_handler.get_proxies()
+            self.send_json_response(200, proxies)
+
         else:
             self.send_json_response(404, {'error': 'Not Found'})
 
@@ -207,6 +213,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             profile_id = int(self.path.split('/')[-2])
             db.set_active_profile(profile_id)
             self.send_json_response(200, {'message': f'Profile {profile_id} activated'})
+
+        elif self.path == '/api/proxies':
+            print("--- Handling POST /api/proxies ---")
+            body = self.get_json_body()
+            print(f"Request body: {body}")
+            proxy_url = body.get('proxy_url')
+            if not proxy_url:
+                print("Proxy URL is missing")
+                return self.send_json_response(400, {'error': 'proxy_url is required'})
+
+            print(f"Adding proxy: {proxy_url}")
+            result = config_handler.add_proxy(proxy_url)
+            print(f"add_proxy result: {result}")
+
+            if result:
+                self.send_json_response(201, {'message': 'Proxy added successfully'})
+            else:
+                self.send_json_response(409, {'error': 'Proxy already exists'})
+            print("--- Finished POST /api/proxies ---")
 
         else:
             self.send_json_response(404, {'error': 'Not Found'})
@@ -228,6 +253,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 self.send_json_response(200, {'message': f'Profile {profile_id} deleted'})
             except ValueError as e:
                 self.send_json_response(400, {'error': str(e)})
+
+        elif self.path == '/api/proxies':
+            body = self.get_json_body()
+            proxy_url = body.get('proxy_url')
+            if not proxy_url:
+                return self.send_json_response(400, {'error': 'proxy_url is required'})
+
+            if config_handler.delete_proxy(proxy_url):
+                self.send_json_response(200, {'message': 'Proxy deleted successfully'})
+            else:
+                self.send_json_response(404, {'error': 'Proxy not found'})
         else:
             self.send_json_response(404, {'error': 'Not Found'})
 
@@ -285,3 +321,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.api_server.participation_queue.put(job)
         db.update_opportunity_status(opp_id, 'pending', 'Participation mise en file d\'attente.')
         self.send_json_response(202, {'success': True, 'message': 'Participation en file d\'attente.'})
+
+if __name__ == "__main__":
+    # You can customize the stats_provider if needed
+    def simple_stats():
+        return {"some_stat": 1}
+
+    server = APIServer(stats_provider=simple_stats)
+    server.run()

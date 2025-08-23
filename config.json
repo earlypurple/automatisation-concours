@@ -18,7 +18,12 @@
     },
     "filters": {
         "min_value": 10,
-        "categories": ["echantillons", "concours", "cashback", "tests"],
+        "categories": [
+            "echantillons",
+            "concours",
+            "cashback",
+            "tests"
+        ],
         "excluded_domains": []
     },
     "auto__participation": {
@@ -49,6 +54,9 @@
     "export": {
         "auto_backup": true,
         "backup_interval_hours": 24,
-        "formats": ["json", "csv"]
+        "formats": [
+            "json",
+            "csv"
+        ]
     }
 }
