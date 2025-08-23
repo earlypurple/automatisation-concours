@@ -12,7 +12,7 @@ def db_cursor():
     try:
         yield cursor
         conn.commit()
-    except Exception:
+    except sqlite3.Error:
         conn.rollback()
         raise
     finally:
@@ -143,6 +143,13 @@ def get_opportunities(profile_id):
     """Fetches all opportunities from the database for a specific profile."""
     with db_cursor() as cur:
         cur.execute('SELECT * FROM opportunities WHERE profile_id = ? ORDER BY score DESC, priority DESC, value DESC', (profile_id,))
+        rows = cur.fetchall()
+        return [dict(row) for row in rows]
+
+def get_pending_confirmation_opportunities(profile_id):
+    """Fetches opportunities pending email confirmation for a specific profile."""
+    with db_cursor() as cur:
+        cur.execute("SELECT * FROM opportunities WHERE status = 'email_confirmation_pending' AND profile_id = ?", (profile_id,))
         rows = cur.fetchall()
         return [dict(row) for row in rows]
 
