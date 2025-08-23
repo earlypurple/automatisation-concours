@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node app.js",
-    "test": "mocha --require tests/setup.js tests/test_suite.js"
+    "test": "mocha --require tests/setup.js tests/test_suite.js",
+    "start-scraper": "node js/scraper_server.js"
   },
   "author": "",
   "license": "ISC",

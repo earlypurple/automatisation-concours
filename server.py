@@ -11,6 +11,8 @@ import database as db
 import subprocess
 import random
 import re
+import requests
+from tenacity import retry, stop_after_attempt, wait_exponential
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from config_handler import config_handler
@@ -58,6 +60,22 @@ class APIServer:
             return proxy
         return None
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        reraise=True
+    )
+    def _call_scraper(self, url, userData, config):
+        logger.info(f"Tentative de participation à {url}...")
+        payload = {
+            'url': url,
+            'userData': userData,
+            'config': config
+        }
+        response = requests.post('http://localhost:3000/fill-form', json=payload, timeout=120)
+        response.raise_for_status()
+        return response.json()
+
     def _worker(self):
         logger.info("🤖 Le travailleur de participation est démarré.")
         while not self.stop_worker_event.is_set():
@@ -85,33 +103,20 @@ class APIServer:
                     if selected_proxy:
                         puppeteer_config['proxy'] = selected_proxy
 
-                    result = subprocess.run(
-                        ['node', 'js/form_filler.js', json.dumps(url), json.dumps(userData), json.dumps(puppeteer_config)],
-                        capture_output=True, text=True, check=True, encoding='utf-8'
-                    )
+                    result = self._call_scraper(url, userData, puppeteer_config)
 
-                    response = json.loads(result.stdout)
-                    if response.get('success'):
+                    if result.get('success'):
                         requires_confirmation = job.get('requires_email_confirmation', False)
                         if requires_confirmation:
                             domain = urlparse(url).netloc
                             db.set_confirmation_pending(opp_id, domain)
                         else:
-                            db.update_opportunity_status(opp_id, 'success', response.get('message', 'Participation réussie.'))
+                            db.update_opportunity_status(opp_id, 'success', result.get('message', 'Participation réussie.'))
                         db.add_participation_history(opp_id, 'participated', job['profile_id'])
                     else:
-                        db.update_opportunity_status(opp_id, 'failed', response.get('error', 'Une erreur inconnue est survenue.'))
+                        db.update_opportunity_status(opp_id, 'failed', result.get('error', 'Une erreur inconnue est survenue.'))
                         db.add_participation_history(opp_id, 'failed', job['profile_id'])
 
-                except subprocess.CalledProcessError as e:
-                    error_output = e.stderr or e.stdout
-                    logger.error(f"Erreur du script: {error_output}")
-                    db.update_opportunity_status(opp_id, 'failed', f"Erreur du script: {error_output}")
-                    db.add_participation_history(opp_id, 'failed', job['profile_id'])
-                except json.JSONDecodeError as e:
-                    logger.error(f"Erreur de décodage JSON: {e}")
-                    db.update_opportunity_status(opp_id, 'failed', f"Erreur de décodage JSON: {e}")
-                    db.add_participation_history(opp_id, 'failed', job['profile_id'])
                 except Exception as e:
                     logger.error(f"Erreur système inattendue: {e}")
                     db.update_opportunity_status(opp_id, 'failed', f"Erreur système inattendue: {e}")
@@ -125,8 +130,6 @@ class APIServer:
 
 
     def run(self):
-        os.chdir(os.path.abspath(os.path.dirname(__file__)))
-
         # Démarrer le worker
         self.worker_thread = threading.Thread(target=self._worker, daemon=True)
         self.worker_thread.start()
@@ -180,7 +183,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 r'/api/proxies$': self.handle_delete_proxy,
             }
         }
-        super().__init__(*args, **kwargs)
+        super().__init__(*args, directory='static', **kwargs)
 
     def send_json_response(self, status_code, data):
         self.send_response(status_code)
@@ -195,29 +198,43 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         post_data = self.rfile.read(content_length)
         return json.loads(post_data)
 
-    def handle_request(self, method):
+    def do_GET(self):
         if self.path.startswith('/api/'):
-            for pattern, handler in self.routes.get(method, {}).items():
+            for pattern, handler in self.routes.get('GET', {}).items():
                 if re.match(pattern, self.path):
                     return handler()
             return self.send_json_response(404, {'error': 'Not Found'})
 
-        if method == 'GET' and self.path == '/settings':
-            self.path = '/settings.html'
+        # Serve static files or the main index.html for the React app
+        path = self.translate_path(self.path)
+        if not os.path.exists(path):
+            self.path = 'index.html'
 
-        super().do_GET()
-
-    def do_GET(self):
-        self.handle_request('GET')
+        return http.server.SimpleHTTPRequestHandler.do_GET(self)
 
     def do_POST(self):
-        self.handle_request('POST')
+        if self.path.startswith('/api/'):
+            for pattern, handler in self.routes.get('POST', {}).items():
+                if re.match(pattern, self.path):
+                    return handler()
+            return self.send_json_response(404, {'error': 'Not Found'})
+        return self.send_json_response(404, {'error': 'Not Found'})
 
     def do_PUT(self):
-        self.handle_request('PUT')
+        if self.path.startswith('/api/'):
+            for pattern, handler in self.routes.get('PUT', {}).items():
+                if re.match(pattern, self.path):
+                    return handler()
+            return self.send_json_response(404, {'error': 'Not Found'})
+        return self.send_json_response(404, {'error': 'Not Found'})
 
     def do_DELETE(self):
-        self.handle_request('DELETE')
+        if self.path.startswith('/api/'):
+            for pattern, handler in self.routes.get('DELETE', {}).items():
+                if re.match(pattern, self.path):
+                    return handler()
+            return self.send_json_response(404, {'error': 'Not Found'})
+        return self.send_json_response(404, {'error': 'Not Found'})
 
     # --- Handlers ---
     def handle_get_data(self):
