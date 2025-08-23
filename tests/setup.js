@@ -22,3 +22,14 @@ global.Notification = {
     permission: 'granted',
     requestPermission: () => Promise.resolve('granted'),
 };
+
+// Mock for fetch API
+global.fetch = (url) => {
+    return Promise.resolve({
+        json: () => Promise.resolve({}),
+        text: () => Promise.resolve(''),
+        ok: true,
+        status: 200,
+        url: url, // Return the original URL for the test
+    });
+};

@@ -7,10 +7,14 @@
     "test": "tests"
   },
   "scripts": {
+    "start": "node app.js",
     "test": "mocha --require tests/setup.js tests/test_suite.js"
   },
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "puppeteer": "^22.12.1"
+  },
   "devDependencies": {
     "mocha": "^10.2.0",
     "jsdom": "^22.1.0"

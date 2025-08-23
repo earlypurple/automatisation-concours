@@ -196,9 +196,29 @@ class AutoParticipationManager {
     }
 
     async submitParticipation(url, formData) {
-        // Simulation de soumission de formulaire
-        await this.sleep(2000); // Délai réaliste
-        return Math.random() > 0.1; // 90% de succès
+        try {
+            const response = await fetch('/api/participate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    url: url,
+                    userData: formData
+                }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Participation failed');
+            }
+
+            const result = await response.json();
+            return result.success;
+        } catch (error) {
+            console.error('Error submitting participation:', error);
+            return false;
+        }
     }
 
     async markAsParticipated(opportunity) {
