@@ -9,6 +9,7 @@ import database as db
 from email.header import decode_header
 import os
 from dotenv import load_dotenv
+from logger import logger
 
 load_dotenv()
 
@@ -36,16 +37,16 @@ def process_pending_confirmations(config):
     """
     Traite toutes les opportunités en attente de confirmation par e-mail.
     """
-    print("Vérification des e-mails de confirmation en attente...")
+    logger.info("Vérification des e-mails de confirmation en attente...")
     pending_opps = [opp for opp in db.get_opportunities() if opp['status'] == 'email_confirmation_pending']
 
     if not pending_opps:
-        print("Aucune confirmation en attente.")
+        logger.info("Aucune confirmation en attente.")
         return
 
     email_enabled = config.get('email_handler', {}).get('enabled', False)
     if not email_enabled:
-        print("Le gestionnaire d'e-mails est désactivé dans config.json.")
+        logger.warning("Le gestionnaire d'e-mails est désactivé dans config.json.")
         return
 
     email_host = os.getenv("EMAIL_HOST")
@@ -53,7 +54,7 @@ def process_pending_confirmations(config):
     email_password = os.getenv("EMAIL_PASSWORD")
 
     if not all([email_host, email_user, email_password]):
-        print("Les variables d'environnement pour l'e-mail ne sont pas configurées.")
+        logger.warning("Les variables d'environnement pour l'e-mail ne sont pas configurées.")
         return
 
     try:
@@ -65,7 +66,7 @@ def process_pending_confirmations(config):
             check_email_for_opportunity(mail, opp, details)
 
     except Exception as e:
-        print(f"Erreur lors du traitement des confirmations : {e}")
+        logger.error(f"Erreur lors du traitement des confirmations : {e}")
     finally:
         if 'mail' in locals() and mail.state != 'LOGOUT':
             mail.logout()
@@ -99,14 +100,14 @@ def check_email_for_opportunity(mail, opportunity, details):
                 link = find_confirmation_link(body)
 
             if link:
-                print(f"Lien de confirmation trouvé pour l'opportunité #{opportunity['id']}: {link}")
+                logger.info(f"Lien de confirmation trouvé pour l'opportunité #{opportunity['id']}: {link}")
                 try:
                     requests.get(link, timeout=15, headers={'User-Agent': 'Mozilla/5.0'}).raise_for_status()
                     db.update_opportunity_status(opportunity['id'], 'success', f"Confirmation par e-mail réussie via le lien: {link}")
                     mail.store(num, '+FLAGS', '\\Seen')
                     return # On a trouvé le bon e-mail, on passe à l'opportunité suivante
                 except requests.RequestException as e:
-                    print(f"Erreur en visitant le lien pour l'opportunité #{opportunity['id']}: {e}")
+                    logger.error(f"Erreur en visitant le lien pour l'opportunité #{opportunity['id']}: {e}")
 
     except Exception as e:
-        print(f"Erreur lors de la recherche d'e-mail pour l'opportunité #{opportunity['id']}: {e}")
+        logger.error(f"Erreur lors de la recherche d'e-mail pour l'opportunité #{opportunity['id']}: {e}")

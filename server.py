@@ -14,6 +14,7 @@ import re
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from config_handler import config_handler
+from logger import logger
 
 load_dotenv()
 
@@ -58,7 +59,7 @@ class APIServer:
         return None
 
     def _worker(self):
-        print("🤖 Le travailleur de participation est démarré.")
+        logger.info("🤖 Le travailleur de participation est démarré.")
         while not self.stop_worker_event.is_set():
             try:
                 job = self.participation_queue.get(timeout=1)
@@ -104,9 +105,11 @@ class APIServer:
 
                 except subprocess.CalledProcessError as e:
                     error_output = e.stderr or e.stdout
+                    logger.error(f"Erreur du script: {error_output}")
                     db.update_opportunity_status(opp_id, 'failed', f"Erreur du script: {error_output}")
                     db.add_participation_history(opp_id, 'failed', job['profile_id'])
                 except Exception as e:
+                    logger.error(f"Erreur système: {e}")
                     db.update_opportunity_status(opp_id, 'failed', f"Erreur système: {e}")
                     db.add_participation_history(opp_id, 'failed', job['profile_id'])
 
@@ -114,7 +117,7 @@ class APIServer:
 
             except queue.Empty:
                 continue
-        print("🤖 Le travailleur de participation est arrêté.")
+        logger.info("🤖 Le travailleur de participation est arrêté.")
 
 
     def run(self):
@@ -132,21 +135,21 @@ class APIServer:
 
         threading.Timer(1, lambda: webbrowser.open(f'http://{self.host}:{self.port}')).start()
 
-        print(f"🌐 Serveur sur http://{self.host}:{self.port}")
+        logger.info(f"🌐 Serveur sur http://{self.host}:{self.port}")
         try:
             self.server.serve_forever()
         except KeyboardInterrupt:
             self.shutdown()
 
     def shutdown(self):
-        print("Arrêt du serveur...")
+        logger.info("Arrêt du serveur...")
         self.stop_worker_event.set()
         if self.worker_thread:
             self.worker_thread.join() # Attendre que le worker termine
         if self.server:
             self.server.shutdown()
             self.server.server_close()
-            print("Serveur arrêté.")
+            logger.info("Serveur arrêté.")
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, stats_provider=None, api_server=None, **kwargs):
@@ -216,23 +219,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_json_response(200, {'message': f'Profile {profile_id} activated'})
 
         elif self.path == '/api/proxies':
-            print("--- Handling POST /api/proxies ---")
+            logger.debug("--- Handling POST /api/proxies ---")
             body = self.get_json_body()
-            print(f"Request body: {body}")
+            logger.debug(f"Request body: {body}")
             proxy_url = body.get('proxy_url')
             if not proxy_url:
-                print("Proxy URL is missing")
+                logger.warning("Proxy URL is missing")
                 return self.send_json_response(400, {'error': 'proxy_url is required'})
 
-            print(f"Adding proxy: {proxy_url}")
+            logger.info(f"Adding proxy: {proxy_url}")
             result = config_handler.add_proxy(proxy_url)
-            print(f"add_proxy result: {result}")
+            logger.debug(f"add_proxy result: {result}")
 
             if result:
                 self.send_json_response(201, {'message': 'Proxy added successfully'})
             else:
                 self.send_json_response(409, {'error': 'Proxy already exists'})
-            print("--- Finished POST /api/proxies ---")
+            logger.debug("--- Finished POST /api/proxies ---")
 
         else:
             self.send_json_response(404, {'error': 'Not Found'})

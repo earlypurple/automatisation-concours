@@ -9,6 +9,7 @@ import joblib
 import database as db
 import numpy as np
 from datetime import datetime
+from logger import logger
 
 def prepare_data(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -41,15 +42,15 @@ def train_and_save_model():
     """
     active_profile = db.get_active_profile()
     if not active_profile:
-        print("Aucun profil actif trouvé. Impossible d'entraîner le modèle.")
+        logger.warning("Aucun profil actif trouvé. Impossible d'entraîner le modèle.")
         return
 
     profile_id = active_profile['id']
-    print(f"Entraînement du modèle pour le profil : {active_profile['name']} (ID: {profile_id})")
+    logger.info(f"Entraînement du modèle pour le profil : {active_profile['name']} (ID: {profile_id})")
 
     history_data = db.get_participation_history(profile_id)
     if not history_data:
-        print("Pas de données d'historique pour l'entraînement.")
+        logger.info("Pas de données d'historique pour l'entraînement.")
         return
 
     df = pd.DataFrame(history_data)
@@ -58,7 +59,7 @@ def train_and_save_model():
     df = df[df['participation_status'].isin(['won', 'lost'])]
 
     if len(df) < 10:
-        print("Pas assez de données (gagné/perdu) pour l'entraînement.")
+        logger.info("Pas assez de données (gagné/perdu) pour l'entraînement.")
         return
 
     # Préparer les données en utilisant la nouvelle fonction
@@ -82,7 +83,7 @@ def train_and_save_model():
 
 
     if len(y.unique()) < 2:
-        print("Pas assez de classes dans la cible pour la stratification. Entraînement annulé.")
+        logger.warning("Pas assez de classes dans la cible pour la stratification. Entraînement annulé.")
         return
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
@@ -96,21 +97,21 @@ def train_and_save_model():
     recall = recall_score(y_test, y_pred, zero_division=0)
     f1 = f1_score(y_test, y_pred, zero_division=0)
 
-    print("\n--- Évaluation du Modèle ---")
-    print(f"  Précision (Accuracy): {accuracy:.2f}")
-    print(f"  Précision (Precision): {precision:.2f}")
-    print(f"  Rappel (Recall): {recall:.2f}")
-    print(f"  Score F1: {f1:.2f}")
-    print("---------------------------\n")
+    logger.info("\n--- Évaluation du Modèle ---")
+    logger.info(f"  Précision (Accuracy): {accuracy:.2f}")
+    logger.info(f"  Précision (Precision): {precision:.2f}")
+    logger.info(f"  Rappel (Recall): {recall:.2f}")
+    logger.info(f"  Score F1: {f1:.2f}")
+    logger.info("---------------------------\n")
 
     joblib.dump(model, 'opportunity_model.joblib')
-    print("Modèle sauvegardé dans 'opportunity_model.joblib'")
+    logger.info("Modèle sauvegardé dans 'opportunity_model.joblib'")
 
     try:
         import main
         main.reload_model()
     except ImportError:
-        print("⚠️  Impossible de recharger le modèle automatiquement. Un redémarrage de l'application est nécessaire.")
+        logger.warning("⚠️  Impossible de recharger le modèle automatiquement. Un redémarrage de l'application est nécessaire.")
 
 if __name__ == '__main__':
     db.init_db()

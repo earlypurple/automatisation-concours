@@ -11,6 +11,7 @@ from scraper import SurveillanceUltraAvancee
 from server import APIServer
 import selection_logic
 import train_model
+from logger import logger
 
 import email_handler
 
@@ -31,19 +32,19 @@ def load_model():
             try:
                 model = joblib.load(MODEL_PATH)
                 selection_logic.model = model  # Injection dans le module de scoring
-                print("🤖 Modèle d'IA chargé avec succès.")
+                logger.info("🤖 Modèle d'IA chargé avec succès.")
             except Exception as e:
-                print(f"⚠️ Erreur lors du chargement du modèle d'IA: {e}")
+                logger.error(f"⚠️ Erreur lors du chargement du modèle d'IA: {e}")
                 model = None
                 selection_logic.model = None
         else:
-            print("ℹ️ Aucun modèle d'IA trouvé. Le scoring de fallback sera utilisé.")
+            logger.info("ℹ️ Aucun modèle d'IA trouvé. Le scoring de fallback sera utilisé.")
             model = None
             selection_logic.model = None
 
 def reload_model():
     """Recharge le modèle d'IA pour refléter les changements (ex: ré-entraînement)."""
-    print("🔄 Rechargement du modèle d'IA demandé...")
+    logger.info("🔄 Rechargement du modèle d'IA demandé...")
     load_model()
 
 
@@ -52,7 +53,7 @@ def run_scheduler(surv_instance):
     scraping_config = surv_instance.config.get('scraping', {})
     interval = scraping_config.get('interval_minutes', 60)
     schedule.every(interval).minutes.do(surv_instance.run_surveillance_complete)
-    print("Planificateur de scraping démarré.")
+    logger.info("Planificateur de scraping démarré.")
     while True:
         schedule.run_pending()
         time.sleep(1)
@@ -61,7 +62,7 @@ def run_training_scheduler(config):
     """Exécute les tâches planifiées pour l'entraînement du modèle d'IA."""
     training_config = config.get('ai_training', {})
     if not training_config.get('enabled', True):
-        print("L'entraînement continu de l'IA est désactivé dans la configuration.")
+        logger.info("L'entraînement continu de l'IA est désactivé dans la configuration.")
         return
 
     # Mettre une valeur par défaut au cas où la configuration est absente
@@ -69,7 +70,7 @@ def run_training_scheduler(config):
     if not isinstance(interval, (int, float)) or interval <= 0:
         interval = 24 # Fallback à une valeur sûre
 
-    print(f"🤖 Planificateur d'entraînement de l'IA démarré. Prochain entraînement dans {interval} heures.")
+    logger.info(f"🤖 Planificateur d'entraînement de l'IA démarré. Prochain entraînement dans {interval} heures.")
     # Planifier la première exécution, puis les suivantes
     schedule.every(interval).hours.do(train_model.train_and_save_model)
 
@@ -81,14 +82,14 @@ def run_email_scheduler(config):
     """Runs the scheduled tasks for email checking."""
     email_config = config.get('email_handler', {})
     if not email_config.get('enabled'):
-        print("Le gestionnaire d'e-mails est désactivé dans la configuration, le planificateur ne démarrera pas.")
+        logger.info("Le gestionnaire d'e-mails est désactivé dans la configuration, le planificateur ne démarrera pas.")
         return
     interval = email_config.get('check_interval_minutes', 15)
 
     # Pass the entire config to the scheduler job
     schedule.every(interval).minutes.do(email_handler.process_pending_confirmations, config=config)
 
-    print("Planificateur d'e-mails démarré.")
+    logger.info("Planificateur d'e-mails démarré.")
     while True:
         schedule.run_pending()
         time.sleep(1)

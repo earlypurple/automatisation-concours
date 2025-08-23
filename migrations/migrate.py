@@ -5,6 +5,7 @@ import sys
 # Adjust the path to import from the root directory
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from database import db_cursor
+from logger import logger
 
 MIGRATIONS_DIR = os.path.dirname(__file__)
 VERSIONS_DIR = os.path.join(MIGRATIONS_DIR, 'versions')
@@ -29,7 +30,7 @@ def get_applied_migrations(cursor):
 def apply_migration(cursor, filepath):
     """Applies a single migration script."""
     filename = os.path.basename(filepath)
-    print(f"Applying migration: {filename}...")
+    logger.info(f"Applying migration: {filename}...")
     with open(filepath, 'r') as f:
         sql_script = f.read()
 
@@ -38,7 +39,7 @@ def apply_migration(cursor, filepath):
 
     # Record the migration
     cursor.execute("INSERT INTO schema_migrations (version) VALUES (?)", (filename,))
-    print(f"Successfully applied {filename}.")
+    logger.info(f"Successfully applied {filename}.")
 
 def main():
     """
@@ -48,7 +49,7 @@ def main():
     - Applies any migrations that haven't been applied yet.
     """
     db_file = get_db_file()
-    print(f"Applying migrations to database: {db_file}")
+    logger.info(f"Applying migrations to database: {db_file}")
 
     # We need to manually manage the connection here to pass the db_file
     conn = sqlite3.connect(db_file)
@@ -87,6 +88,6 @@ def main():
 
 if __name__ == "__main__":
     # This allows the script to be run directly for manual migrations
-    print("Running database migrations...")
+    logger.info("Running database migrations...")
     main()
-    print("All migrations applied successfully.")
+    logger.info("All migrations applied successfully.")

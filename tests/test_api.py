@@ -9,6 +9,7 @@ import sys
 # Add the root directory to the Python path to allow importing server and database
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+from logger import logger
 import server
 import database as db
 
@@ -18,19 +19,19 @@ class TestApi(unittest.TestCase):
     def setUpClass(cls):
         # Initialiser la base de données pour les tests
         cls.db_file = 'test_surveillance.db'
-        print(f"--- Test setup: Using database file: {os.path.abspath(cls.db_file)} ---")
+        logger.info(f"--- Test setup: Using database file: {os.path.abspath(cls.db_file)} ---")
         db.DB_FILE = cls.db_file
         if os.path.exists(cls.db_file):
-            print("--- Test setup: Removing existing test database. ---")
+            logger.info("--- Test setup: Removing existing test database. ---")
             os.remove(cls.db_file)
 
-        print("--- Test setup: Running migrations... ---")
+        logger.info("--- Test setup: Running migrations... ---")
         db.run_migrations()
-        print("--- Test setup: Migrations finished. ---")
+        logger.info("--- Test setup: Migrations finished. ---")
 
-        print("--- Test setup: Initializing database (for default profile)... ---")
+        logger.info("--- Test setup: Initializing database (for default profile)... ---")
         db.init_db()
-        print("--- Test setup: Database initialized. ---")
+        logger.info("--- Test setup: Database initialized. ---")
 
         # Démarrer le serveur dans un thread séparé
         cls.api_server = server.APIServer(host='localhost', port=8081)

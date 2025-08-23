@@ -1,6 +1,8 @@
 import pandas as pd
 from datetime import datetime
 
+from logger import logger
+
 # Le modèle est maintenant injecté par le script principal (main.py)
 # pour permettre le rechargement à chaud.
 model = None
@@ -67,5 +69,5 @@ def calculate_score(opportunity):
         return win_probability * 100
 
     except Exception as e:
-        print(f"Erreur lors du calcul du score avec le modèle: {e}")
+        logger.error(f"Erreur lors du calcul du score avec le modèle: {e}")
         return calculate_score_fallback(opportunity)

@@ -9,6 +9,7 @@ from telegram_notifier import send_telegram_message
 import os
 from dotenv import load_dotenv
 import subprocess
+from logger import logger
 
 load_dotenv()
 
@@ -33,7 +34,7 @@ class SurveillanceUltraAvancee:
             with open(filename, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError) as e:
-            print(f"Erreur de chargement de {filename}: {e}")
+            logger.error(f"Erreur de chargement de {filename}: {e}")
             return {}
 
     def parse_price(self, price_str):
@@ -90,20 +91,20 @@ class SurveillanceUltraAvancee:
                 with self.lock:
                     self.stats['today_new'] += 1
         except subprocess.CalledProcessError as e:
-            print(f"Erreur de scraping pour {site_key} avec Puppeteer: {e.stderr}")
+            logger.error(f"Erreur de scraping pour {site_key} avec Puppeteer: {e.stderr}")
         except json.JSONDecodeError:
-            print(f"Erreur de décodage JSON pour {site_key}.")
+            logger.error(f"Erreur de décodage JSON pour {site_key}.")
         except Exception as e:
-            print(f"Erreur inattendue pour {site_key}: {e}")
+            logger.error(f"Erreur inattendue pour {site_key}: {e}")
 
     def run_surveillance_complete(self):
         active_profile = db.get_active_profile()
         if not active_profile:
-            print("❌ Aucun profil actif trouvé. Veuillez en activer un.")
+            logger.warning("❌ Aucun profil actif trouvé. Veuillez en activer un.")
             return
 
         profile_id = active_profile['id']
-        print(f"🚀 Lancement de la surveillance pour le profil : {active_profile['name']} (ID: {profile_id})")
+        logger.info(f"🚀 Lancement de la surveillance pour le profil : {active_profile['name']} (ID: {profile_id})")
 
         db.clear_opportunities(profile_id)
         self.stats['today_new'] = 0
@@ -117,10 +118,10 @@ class SurveillanceUltraAvancee:
             t.join()
 
         # Mettre à jour les scores après le scraping
-        print(f"Mise à jour des scores pour le profil {profile_id}...")
+        logger.info(f"Mise à jour des scores pour le profil {profile_id}...")
         db.update_all_scores(profile_id)
 
         opportunities = db.get_opportunities(profile_id)
         self.stats['total_found'] = len(opportunities)
         self.stats['total_value'] = sum(o['value'] for o in opportunities if o['value'])
-        print(f"✅ {self.stats['total_found']} opportunités trouvées pour le profil {active_profile['name']}, valeur ~€{self.stats['total_value']:.2f}")
+        logger.info(f"✅ {self.stats['total_found']} opportunités trouvées pour le profil {active_profile['name']}, valeur ~€{self.stats['total_value']:.2f}")

@@ -20,14 +20,15 @@ def db_cursor():
 
 import json
 import subprocess
+from logger import logger
 
 def run_migrations():
     """Runs the database migration scripts."""
-    print("Running database migrations...")
+    logger.info("Running database migrations...")
     # We run this as a subprocess to ensure it's using the correct context
     # and pass the database file as an argument.
     subprocess.run(['python', 'migrations/migrate.py', DB_FILE], check=True)
-    print("Migrations completed.")
+    logger.info("Migrations completed.")
 
 def init_db():
     """
@@ -38,7 +39,7 @@ def init_db():
         # --- Check if a default profile needs to be created ---
         cur.execute("SELECT COUNT(*) FROM profiles")
         if cur.fetchone()[0] == 0:
-            print("No profiles found. Creating a default profile...")
+            logger.info("No profiles found. Creating a default profile...")
             default_user_data = json.dumps({
                 "name": "John Doe",
                 "email": "johndoe@example.com",
@@ -49,7 +50,7 @@ def init_db():
                 "INSERT INTO profiles (name, user_data, is_active) VALUES (?, ?, ?)",
                 ('Défaut', default_user_data, 1)
             )
-            print("Default profile created.")
+            logger.info("Default profile created.")
 
 import datetime
 
@@ -129,7 +130,7 @@ def update_all_scores(profile_id):
             score = selection_logic.calculate_score(opp)
             cur.execute("UPDATE opportunities SET score = ? WHERE id = ?", (score, opp['id']))
 
-        print(f"Scores updated for {len(opportunities)} opportunities for profile {profile_id}.")
+        logger.info(f"Scores updated for {len(opportunities)} opportunities for profile {profile_id}.")
 
 def get_opportunity_by_id(opportunity_id):
     """Fetches a single opportunity by its ID."""
