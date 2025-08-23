@@ -43,10 +43,7 @@
     "proxies": {
         "enabled": false,
         "rotation_mode": "random",
-        "list": [
-            "http://user:pass@host:port",
-            "http://user2:pass2@host2:port"
-        ]
+        "list": []
     },
     "captcha_solver": {
         "enabled": false,
@@ -91,7 +88,7 @@
             "url": "https://shopmium.com/fr/",
             "type": "cashback",
             "priority": 4,
-            "auto_fill": false,
+            "auto_fill": false,.
             "selectors": {
                 "offer": ".offer-item",
                 "title": ".offer-title",
