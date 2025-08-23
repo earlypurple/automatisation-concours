@@ -18,6 +18,7 @@ class SurveillanceUltraAvancee:
         self.sites_config = self.load_json('sites_config.json')
         self.stats = {'total_found': 0, 'today_new': 0, 'total_value': 0, 'success_rate': 94}
         self.lock = threading.Lock()
+        db.run_migrations()
         db.init_db()
 
         # Load CAPTCHA API key from environment and update config

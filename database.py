@@ -18,66 +18,27 @@ def db_cursor():
     finally:
         conn.close()
 
+import json
+import subprocess
+
+def run_migrations():
+    """Runs the database migration scripts."""
+    print("Running database migrations...")
+    # We run this as a subprocess to ensure it's using the correct context
+    # and pass the database file as an argument.
+    subprocess.run(['python', 'migrations/migrate.py', DB_FILE], check=True)
+    print("Migrations completed.")
+
 def init_db():
-    """Initializes the database and creates/updates tables for multi-account support."""
+    """
+    Initializes the database by creating a default profile if none exists.
+    Schema creation is now handled by the migration system.
+    """
     with db_cursor() as cur:
-        # --- Table des Profils ---
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS profiles (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL UNIQUE,
-                email TEXT,
-                user_data TEXT, -- JSON for form filling
-                settings TEXT, -- JSON for profile-specific settings
-                is_active BOOLEAN DEFAULT 0
-            )
-        ''')
-
-        # --- Table des Opportunités (avec migration) ---
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS opportunities (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                site TEXT NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT,
-                url TEXT NOT NULL,
-                type TEXT,
-                priority INTEGER,
-                value REAL,
-                auto_fill BOOLEAN,
-                detected_at TEXT NOT NULL,
-                expires_at TEXT,
-                status TEXT DEFAULT 'pending',
-                log TEXT DEFAULT '',
-                entries_count INTEGER,
-                time_left TEXT,
-                score REAL,
-                confirmation_details TEXT
-            )
-        ''')
-        # Add profile_id column if it doesn't exist for migration
-        cur.execute("PRAGMA table_info(opportunities)")
-        if 'profile_id' not in [row['name'] for row in cur.fetchall()]:
-            cur.execute('ALTER TABLE opportunities ADD COLUMN profile_id INTEGER REFERENCES profiles(id)')
-
-        # --- Table de l'Historique (avec migration) ---
-        cur.execute('''
-            CREATE TABLE IF NOT EXISTS participation_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                opportunity_id INTEGER NOT NULL,
-                participation_date TEXT NOT NULL,
-                status TEXT NOT NULL,
-                FOREIGN KEY (opportunity_id) REFERENCES opportunities (id)
-            )
-        ''')
-        # Add profile_id column if it doesn't exist for migration
-        cur.execute("PRAGMA table_info(participation_history)")
-        if 'profile_id' not in [row['name'] for row in cur.fetchall()]:
-            cur.execute('ALTER TABLE participation_history ADD COLUMN profile_id INTEGER REFERENCES profiles(id)')
-
-        # --- Créer un profil par défaut si aucun n'existe ---
+        # --- Check if a default profile needs to be created ---
         cur.execute("SELECT COUNT(*) FROM profiles")
         if cur.fetchone()[0] == 0:
+            print("No profiles found. Creating a default profile...")
             default_user_data = json.dumps({
                 "name": "John Doe",
                 "email": "johndoe@example.com",
@@ -88,9 +49,7 @@ def init_db():
                 "INSERT INTO profiles (name, user_data, is_active) VALUES (?, ?, ?)",
                 ('Défaut', default_user_data, 1)
             )
-            # Link existing data to the default profile
-            cur.execute("UPDATE opportunities SET profile_id = 1 WHERE profile_id IS NULL")
-            cur.execute("UPDATE participation_history SET profile_id = 1 WHERE profile_id IS NULL")
+            print("Default profile created.")
 
 import datetime
 
