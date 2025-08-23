@@ -1,17 +1,10 @@
-import joblib
 import pandas as pd
-import os
 from datetime import datetime
 
-MODEL_PATH = 'opportunity_model.joblib'
-
-# Charger le modèle une seule fois au démarrage si possible
+# Le modèle est maintenant injecté par le script principal (main.py)
+# pour permettre le rechargement à chaud.
 model = None
-if os.path.exists(MODEL_PATH):
-    try:
-        model = joblib.load(MODEL_PATH)
-    except Exception as e:
-        print(f"Erreur lors du chargement du modèle: {e}")
+
 
 def calculate_score_fallback(opportunity):
     """

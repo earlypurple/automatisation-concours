@@ -5,10 +5,47 @@
 import time
 import threading
 import schedule
+import os
+import joblib
 from scraper import SurveillanceUltraAvancee
 from server import APIServer
+import selection_logic
+import train_model
 
 import email_handler
+
+# --- Gestion du Modèle d'IA ---
+MODEL_PATH = 'opportunity_model.joblib'
+model_lock = threading.Lock()
+# Le modèle est chargé ici et injecté dans les modules qui en ont besoin.
+model = None
+
+def load_model():
+    """
+    Charge le modèle d'IA à partir du fichier.
+    Cette fonction est thread-safe.
+    """
+    global model
+    with model_lock:
+        if os.path.exists(MODEL_PATH):
+            try:
+                model = joblib.load(MODEL_PATH)
+                selection_logic.model = model  # Injection dans le module de scoring
+                print("🤖 Modèle d'IA chargé avec succès.")
+            except Exception as e:
+                print(f"⚠️ Erreur lors du chargement du modèle d'IA: {e}")
+                model = None
+                selection_logic.model = None
+        else:
+            print("ℹ️ Aucun modèle d'IA trouvé. Le scoring de fallback sera utilisé.")
+            model = None
+            selection_logic.model = None
+
+def reload_model():
+    """Recharge le modèle d'IA pour refléter les changements (ex: ré-entraînement)."""
+    print("🔄 Rechargement du modèle d'IA demandé...")
+    load_model()
+
 
 def run_scheduler(surv_instance):
     """Runs the scheduled tasks for scraping."""
@@ -19,6 +56,26 @@ def run_scheduler(surv_instance):
     while True:
         schedule.run_pending()
         time.sleep(1)
+
+def run_training_scheduler(config):
+    """Exécute les tâches planifiées pour l'entraînement du modèle d'IA."""
+    training_config = config.get('ai_training', {})
+    if not training_config.get('enabled', True):
+        print("L'entraînement continu de l'IA est désactivé dans la configuration.")
+        return
+
+    # Mettre une valeur par défaut au cas où la configuration est absente
+    interval = training_config.get('training_interval_hours', 24)
+    if not isinstance(interval, (int, float)) or interval <= 0:
+        interval = 24 # Fallback à une valeur sûre
+
+    print(f"🤖 Planificateur d'entraînement de l'IA démarré. Prochain entraînement dans {interval} heures.")
+    # Planifier la première exécution, puis les suivantes
+    schedule.every(interval).hours.do(train_model.train_and_save_model)
+
+    while True:
+        schedule.run_pending()
+        time.sleep(60) # Pas besoin de vérifier chaque seconde
 
 def run_email_scheduler(config):
     """Runs the scheduled tasks for email checking."""
@@ -37,6 +94,9 @@ def run_email_scheduler(config):
         time.sleep(1)
 
 if __name__ == "__main__":
+    # 0. Charger le modèle d'IA au démarrage
+    load_model()
+
     # 1. Initialiser le scraper
     surv = SurveillanceUltraAvancee()
 
@@ -49,6 +109,10 @@ if __name__ == "__main__":
 
     email_scheduler_thread = threading.Thread(target=run_email_scheduler, args=(surv.config,), daemon=True)
     email_scheduler_thread.start()
+
+    # Nouveau: Démarrer le planificateur d'entraînement de l'IA
+    training_scheduler_thread = threading.Thread(target=run_training_scheduler, args=(surv.config,), daemon=True)
+    training_scheduler_thread.start()
 
     # 4. Démarrer le serveur d'API
     # Le serveur a besoin d'accéder aux stats mises à jour par le scraper
