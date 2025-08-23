@@ -159,7 +159,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, stats_provider=None, api_server=None, **kwargs):
         self.stats_provider = stats_provider
         self.api_server = api_server
-
+        self.routes = {
+            'GET': {
+                r'/api/data$': self.handle_get_data,
+                r'/api/profiles$': self.handle_get_profiles,
+                r'/api/profiles/active$': self.handle_get_active_profile,
+                r'/api/proxies$': self.handle_get_proxies,
+            },
+            'POST': {
+                r'/api/profiles$': self.handle_create_profile,
+                r'/api/proxies$': self.handle_add_proxy,
+                r'/api/participate$': self.handle_participation,
+                r'/api/profiles/\d+/activate$': self.handle_activate_profile,
+            },
+            'PUT': {
+                r'/api/profiles/\d+$': self.handle_update_profile,
+            },
+            'DELETE': {
+                r'/api/profiles/\d+$': self.handle_delete_profile,
+                r'/api/proxies$': self.handle_delete_proxy,
+            }
+        }
         super().__init__(*args, **kwargs)
 
     def send_json_response(self, status_code, data):
