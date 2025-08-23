@@ -37,8 +37,7 @@ def prepare_data(df: pd.DataFrame) -> pd.DataFrame:
 
 def train_and_save_model():
     """
-    Charge les données, prépare les données, entraîne un modèle de classification
-    et le sauvegarde.
+
     """
     active_profile = db.get_active_profile()
     if not active_profile:
@@ -74,15 +73,11 @@ def train_and_save_model():
             ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features)
         ])
 
-    model = Pipeline(steps=[('preprocessor', preprocessor),
-                            ('classifier', lgb.LGBMClassifier(objective='binary',
-                                                              class_weight='balanced',
-                                                              n_estimators=100,
-                                                              learning_rate=0.1,
-                                                              num_leaves=31))])
+<
 
     X = df[numeric_features + categorical_features]
     y = df['target']
+
 
     if len(y.unique()) < 2:
         print("Pas assez de classes dans la cible pour la stratification. Entraînement annulé.")
