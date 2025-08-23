@@ -1,4 +1,5 @@
 // notifications.js
+const Utils = require('./utils.js');
 
 class NotificationManager {
     constructor() {

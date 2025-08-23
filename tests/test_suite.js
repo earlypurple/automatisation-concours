@@ -1,8 +1,9 @@
 // tests/test_suite.js
 
 const assert = require('assert');
+const Utils = require('../js/utils.js');
 const Analytics = require('../js/analytics.js');
-const AutoParticipation = require('../js/autoParticipation.js');
+const AutoParticipationManager = require('../js/autoParticipation.js');
 const NotificationManager = require('../js/notifications.js');
 const EmailReportManager = require('../js/emailReports.js');
 

@@ -6,3 +6,8 @@ DerivedData/
 .swiftpm/configuration/registries.json
 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
 .netrc
+node_modules/
+app.log
+surveillance_data.json
+surveillance.db
+__pycache__/
