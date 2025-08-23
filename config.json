@@ -1,0 +1,34 @@
+{
+    "scraping": {
+        "interval_minutes": 60,
+        "start_time": "09:00",
+        "max_threads": 10,
+        "timeout": 30
+    },
+    "server": {
+        "port": 8080,
+        "host": "localhost",
+        "enable_api": true,
+        "cors_enabled": true
+    },
+    "notifications": {
+        "desktop": true,
+        "browser": true,
+        "min_priority": 4
+    },
+    "filters": {
+        "min_value": 10,
+        "categories": ["echantillons", "concours", "cashback", "tests"],
+        "excluded_domains": []
+    },
+    "auto_participation": {
+        "enabled": true,
+        "max_per_day": 50,
+        "safe_mode": true
+    },
+    "export": {
+        "auto_backup": true,
+        "backup_interval_hours": 24,
+        "formats": ["json", "csv"]
+    }
+}

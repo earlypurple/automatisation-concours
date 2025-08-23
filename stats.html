@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statistiques - Surveillance Gratuite Pro</title>
+    <link rel="stylesheet" href="css/components.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .stats-container {
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 1.1rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+            margin: 1rem 0;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .recommendations {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .recommendation {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0.5rem;
+        }
+
+        .recommendation.success {
+            background: rgba(46, 204, 113, 0.1);
+            border-left: 4px solid #2ecc71;
+        }
+
+        .recommendation.warning {
+            background: rgba(241, 196, 15, 0.1);
+            border-left: 4px solid #f1c40f;
+        }
+
+        .recommendation.error {
+            background: rgba(231, 76, 60, 0.1);
+            border-left: 4px solid #e74c3c;
+        }
+
+        .export-buttons {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="stats-container">
+        <h1>📊 Statistiques et Analyses</h1>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Total Participations</h3>
+                <div class="stat-value" id="totalParticipations">0</div>
+                <div class="stat-trend" id="participationsTrend"></div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Taux de Succès</h3>
+                <div class="stat-value" id="successRate">0%</div>
+                <div class="stat-trend" id="successTrend"></div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Valeur Totale</h3>
+                <div class="stat-value" id="totalValue">0€</div>
+                <div class="stat-trend" id="valueTrend"></div>
+            </div>
+            
+            <div class="stat-card">
+                <h3>Moyenne par Jour</h3>
+                <div class="stat-value" id="dailyAverage">0</div>
+                <div class="stat-trend" id="dailyTrend"></div>
+            </div>
+        </div>
+        
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h3>Participations par Jour</h3>
+                <canvas id="participationsChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h3>Valeur par Catégorie</h3>
+                <canvas id="categoriesChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h3>Taux de Succès par Type</h3>
+                <canvas id="successRateChart"></canvas>
+            </div>
+        </div>
+        
+        <div class="recommendations">
+            <h3>Recommandations</h3>
+            <div id="recommendationsContainer"></div>
+        </div>
+        
+        <div class="export-buttons">
+            <button class="btn btn-primary" onclick="analytics.exportData('json')">
+                📥 Exporter en JSON
+            </button>
+            <button class="btn btn-primary" onclick="analytics.exportData('csv')">
+                📄 Exporter en CSV
+            </button>
+        </div>
+    </div>
+
+    <script src="js/utils.js"></script>
+    <script src="js/analytics.js"></script>
+    <script>
+        const analytics = new Analytics();
+        
+        function initCharts() {
+            const chartData = analytics.generateCharts();
+            
+            // Graphique des participations
+            new Chart(document.getElementById('participationsChart'), {
+                type: 'line',
+                data: {
+                    labels: Object.keys(chartData.participationsTrend),
+                    datasets: [{
+                        label: 'Participations',
+                        data: Object.values(chartData.participationsTrend),
+                        borderColor: '#667eea',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+            
+            // Graphique des catégories
+            new Chart(document.getElementById('categoriesChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(chartData.categoryValue),
+                    datasets: [{
+                        data: Object.values(chartData.categoryValue),
+                        backgroundColor: [
+                            '#667eea',
+                            '#764ba2',
+                            '#2ecc71',
+                            '#e74c3c',
+                            '#f1c40f'
+                        ]
+                    }]
+                }
+            });
+            
+            // Graphique des taux de succès
+            new Chart(document.getElementById('successRateChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(chartData.successRates),
+                    datasets: [{
+                        label: 'Taux de succès',
+                        data: Object.values(chartData.successRates),
+                        backgroundColor: '#2ecc71'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', () => {
+            analytics.updateUI();
+            initCharts();
+        });
+    </script>
+</body>
+</html>
