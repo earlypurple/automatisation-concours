@@ -10,13 +10,14 @@ import os
 from dotenv import load_dotenv
 import subprocess
 from logger import logger
+from config_handler import config_handler
 
 load_dotenv()
 
 class SurveillanceUltraAvancee:
     def __init__(self):
-        self.config = self.load_json('config.json')
-        self.sites_config = self.load_json('sites_config.json')
+        self.config = config_handler.get_config()
+        self.sites_config = config_handler.get_sites_config()
         self.stats = {'total_found': 0, 'today_new': 0, 'total_value': 0, 'success_rate': 94}
         self.lock = threading.Lock()
         db.run_migrations()
@@ -28,14 +29,6 @@ class SurveillanceUltraAvancee:
             if 'captcha_solver' not in self.config:
                 self.config['captcha_solver'] = {}
             self.config['captcha_solver']['api_key'] = captcha_api_key
-
-    def load_json(self, filename):
-        try:
-            with open(filename, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"Erreur de chargement de {filename}: {e}")
-            return {}
 
     def parse_price(self, price_str):
         if not price_str:
