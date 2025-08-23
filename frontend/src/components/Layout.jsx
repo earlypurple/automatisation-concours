@@ -1,15 +1,22 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
+import './Layout.css'; // We will create this file next
 
 function Layout({ children }) {
   return (
-    <div>
-      <header>
-        <nav>
-          <Link to="/">Dashboard</Link> | <Link to="/settings">Settings</Link>
+    <div className="layout">
+      <aside className="sidebar">
+        <div className="sidebar-header">
+          <h2>Dashboard Pro</h2>
+        </div>
+        <nav className="sidebar-nav">
+          <NavLink to="/" end>Dashboard</NavLink>
+          <NavLink to="/settings">Settings</NavLink>
         </nav>
-      </header>
-      <main>{children}</main>
+      </aside>
+      <main className="content">
+        {children}
+      </main>
     </div>
   );
 }

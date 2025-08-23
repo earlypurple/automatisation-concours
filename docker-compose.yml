@@ -2,21 +2,44 @@ version: '3.8'
 
 services:
   app:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: surveillance_app
     ports:
       - "8080:8080"
     volumes:
       - .:/app
-      # Volume pour la base de données, pour qu'elle persiste
       - surveillance_db:/app/surveillance.db
     environment:
-      # Passer les clés d'API via les variables d'environnement
-      # L'utilisateur devra créer un fichier .env à la racine
       - CAPTCHA_SOLVER_API_KEY=${CAPTCHA_SOLVER_API_KEY}
       - EMAIL_USER=${EMAIL_USER}
       - EMAIL_PASSWORD=${EMAIL_PASSWORD}
       - PROXIES_LIST=${PROXIES_LIST}
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+
+  scraper:
+    build:
+      context: .
+      dockerfile: scraper.Dockerfile
+    container_name: scraper_service
+    volumes:
+      - .:/app
+    environment:
+      - REDIS_HOST=redis
+    depends_on:
+      - redis
+
+  redis:
+    image: "redis:alpine"
+    container_name: redis_queue
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
 
 volumes:
   surveillance_db:
+  redis_data:
