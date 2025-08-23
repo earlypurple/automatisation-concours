@@ -196,8 +196,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             proxies = config_handler.get_proxies()
             self.send_json_response(200, proxies)
 
-        elif self.path == '/api/config':
-            self.send_json_response(200, config_handler.get_config())
 
         else:
             self.send_json_response(404, {'error': 'Not Found'})
@@ -235,11 +233,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             else:
                 self.send_json_response(409, {'error': 'Proxy already exists'})
             print("--- Finished POST /api/proxies ---")
-
-        elif self.path == '/api/config':
-            new_config = self.get_json_body()
-            config_handler.save_config(new_config)
-            self.send_json_response(200, {'message': 'Configuration updated successfully'})
 
         else:
             self.send_json_response(404, {'error': 'Not Found'})

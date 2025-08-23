@@ -2,8 +2,7 @@ class SettingsApp {
     constructor() {
         this.profiles = [];
         this.proxies = [];
-        this.config = {};
-        this.init();
+
     }
 
     async init() {
@@ -32,20 +31,8 @@ class SettingsApp {
         this.addProxyBtn = document.getElementById('add-proxy-btn');
         this.proxyList = document.getElementById('proxy-list');
 
-        // General settings elements
-        this.saveGeneralBtn = document.getElementById('save-btn');
-        this.desktopNotifications = document.getElementById('desktopNotifications');
-        this.browserNotifications = document.getElementById('browserNotifications');
-        this.minPriority = document.getElementById('minPriority');
-        this.scrapingInterval = document.getElementById('scrapingInterval');
-        this.autoParticipationEnabled = document.getElementById('autoParticipationEnabled');
-        this.maxPerDay = document.getElementById('maxPerDay');
 
-        // Telegram elements
-        this.telegramEnabled = document.getElementById('telegramEnabled');
-        this.telegramBotToken = document.getElementById('telegramBotToken');
-        this.telegramChatId = document.getElementById('telegramChatId');
-
+     
         this.toast = document.getElementById('toast');
     }
 
@@ -253,70 +240,7 @@ class SettingsApp {
         }
     }
 
-    // --- General Settings Methods ---
-
-    async loadGeneralSettings() {
-        try {
-            const response = await fetch('/api/config');
-            this.config = await response.json();
-            this.populateGeneralSettings();
-        } catch (error) {
-            this.showToast('Erreur de chargement de la configuration générale.', 'error');
-        }
-    }
-
-    populateGeneralSettings() {
-        const notifications = this.config.notifications || {};
-        const scraping = this.config.scraping || {};
-        const autoPart = this.config.auto__participation || {};
-        const telegram = notifications.telegram || {};
-
-        this.desktopNotifications.checked = notifications.desktop;
-        this.browserNotifications.checked = notifications.browser;
-        this.minPriority.value = notifications.min_priority;
-
-        this.telegramEnabled.checked = telegram.enabled;
-        this.telegramBotToken.value = telegram.bot_token;
-        this.telegramChatId.value = telegram.chat_id;
-
-        this.scrapingInterval.value = scraping.interval_minutes;
-        this.autoParticipationEnabled.checked = autoPart.enabled;
-        this.maxPerDay.value = autoPart.max_per_day;
-    }
-
-    async saveGeneralSettings() {
-        // Update the config object from the form fields
-        this.config.notifications.desktop = this.desktopNotifications.checked;
-        this.config.notifications.browser = this.browserNotifications.checked;
-        this.config.notifications.min_priority = parseInt(this.minPriority.value, 10);
-
-        this.config.notifications.telegram.enabled = this.telegramEnabled.checked;
-        this.config.notifications.telegram.bot_token = this.telegramBotToken.value;
-        this.config.notifications.telegram.chat_id = this.telegramChatId.value;
-
-        this.config.scraping.interval_minutes = parseInt(this.scrapingInterval.value, 10);
-        this.config.auto__participation.enabled = this.autoParticipationEnabled.checked;
-        this.config.auto__participation.max_per_day = parseInt(this.maxPerDay.value, 10);
-
-        try {
-            const response = await fetch('/api/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(this.config)
-            });
-
-            if (response.ok) {
-                this.showToast('Paramètres généraux enregistrés!', 'success');
-            } else {
-                const result = await response.json();
-                throw new Error(result.error || 'Erreur inconnue');
-            }
-        } catch (error) {
-            this.showToast(`Erreur: ${error.message}`, 'error');
-        }
-    }
-
-
+<
     showToast(message, type = 'success') {
         this.toast.textContent = message;
         this.toast.className = `toast show ${type}`;
