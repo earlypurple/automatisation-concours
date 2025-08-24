@@ -5,7 +5,7 @@ Cette nouvelle version majeure intègre des fonctionnalités d'automatisation av
 ## Fonctionnalités Clés
 - **Gestion Multi-Comptes**: Gérez plusieurs profils de participation, chacun avec ses propres données et statistiques.
 - **Scoring d'Opportunité par IA**: Un système de score prédictif qui apprend de vos succès passés pour prioriser les meilleures opportunités.
-- **Moteur de Scraping Amélioré**: Utilise un navigateur headless (Puppeteer) avec des techniques anti-détection pour une meilleure compatibilité.
+- **Moteur de Scraping Amélioré**: Utilise un navigateur headless (Playwright) avec des techniques anti-détection pour une meilleure compatibilité.
 - **Support CAPTCHA Étendu**: Gère les reCAPTCHA v2, hCaptcha, et les CAPTCHA à base d'images.
 - **Gestion de Proxies**: Rotation de proxies pour l'anonymat et pour éviter les blocages.
 - **Planification et Limitation Avancées**: Comportement de type humain pour plus de discrétion.
@@ -20,7 +20,7 @@ Cette nouvelle version majeure intègre des fonctionnalités d'automatisation av
 1. Copiez `.env.example` vers `.env` et remplissez vos clés API (ex: `CAPTCHA_SOLVER_API_KEY`).
 2. Lancez l'application avec Docker Compose :
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 3. Ouvrez votre navigateur sur `http://localhost:8080`.
 

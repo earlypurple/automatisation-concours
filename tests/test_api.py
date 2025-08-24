@@ -1,6 +1,7 @@
 import unittest
 from unittest import mock
-import requests
+from unittest.mock import MagicMock, patch
+import io
 import threading
 import time
 import os
@@ -14,10 +15,9 @@ from logger import logger
 import server
 import database as db
 import analytics
+from intelligent_cache import api_cache, analytics_cache
 
 class TestApi(unittest.TestCase):
-
-    BASE_URL = "http://localhost:8081/api"
 
     @classmethod
     def setUpClass(cls):
@@ -29,23 +29,12 @@ class TestApi(unittest.TestCase):
         db.run_migrations()
         db.init_db()
 
-        def test_analytics_provider():
-            active_profile = db.get_active_profile()
-            profile_id = active_profile['id'] if active_profile else None
-            return analytics.get_analytics_data(profile_id)
-
-        cls.api_server = server.APIServer(
-            host='localhost',
-            port=8081,
-            stats_provider=test_analytics_provider
-        )
-        cls.server_thread = threading.Thread(target=cls.api_server.run, daemon=True)
-        cls.server_thread.start()
-        time.sleep(1)
+        # We still need the APIServer instance because the Handler class depends on it
+        # for things like the participation queue. But we will not run it.
+        cls.api_server = server.APIServer(host='localhost', port=8081)
 
     @classmethod
     def tearDownClass(cls):
-        cls.api_server.shutdown()
         if os.path.exists(cls.db_file):
             os.remove(cls.db_file)
 
@@ -56,24 +45,86 @@ class TestApi(unittest.TestCase):
             cur.execute("DELETE FROM profiles WHERE id > 1")
             cur.execute("UPDATE profiles SET is_active = 1 WHERE id = 1")
 
+    def tearDown(self):
+        # This method is called after each test.
+        # We clean up the tables and caches that are modified by multiple tests
+        # to ensure a clean state for the next test.
+        with db.db_cursor() as cur:
+            cur.execute("DELETE FROM opportunities")
+            cur.execute("DELETE FROM participation_history")
+
+        api_cache.clear()
+        analytics_cache.clear()
+
     # --- Helper Methods ---
+    def _simulate_request(self, method, endpoint, body=None):
+        """
+        Simulates an HTTP request to the API handler without a live server.
+        This version patches the parent __init__ to prevent any socket/request handling.
+        """
+        # Patch the parent's __init__ so it does nothing. This prevents the handler
+        # from trying to read from a socket during instantiation.
+        with patch('http.server.SimpleHTTPRequestHandler.__init__', lambda *args, **kwargs: None):
+            handler = server.Handler(None, None, None, api_server=self.api_server)
+
+        # Now, manually set up the handler with the necessary attributes for the test.
+        request_body_bytes = json.dumps(body).encode('utf-8') if body is not None else b''
+        handler.rfile = io.BytesIO(request_body_bytes)
+        handler.wfile = io.BytesIO()
+        handler.path = f"/api{endpoint}"
+        handler.command = method
+        handler.headers = {
+            'Host': 'localhost:8081',
+            'Content-Type': 'application/json',
+            'Content-Length': str(len(request_body_bytes))
+        }
+
+        # Mock the response methods that would normally write to a socket.
+        handler.send_response = MagicMock()
+        handler.send_header = MagicMock()
+        handler.end_headers = MagicMock()
+
+        # Call the appropriate do_METHOD (e.g., do_GET, do_POST)
+        do_method = getattr(handler, f'do_{method}')
+        do_method()
+
+        # Create a mock response object to return, mimicking `requests.Response`.
+        mock_response = MagicMock()
+
+        if handler.send_response.called:
+            mock_response.status_code = handler.send_response.call_args[0][0]
+        else:
+            mock_response.status_code = 500  # Default to error if response wasn't sent
+
+        response_body = handler.wfile.getvalue().decode('utf-8')
+
+        def json_func():
+            # Mimic requests.json() which fails on empty body
+            if not response_body:
+                raise json.JSONDecodeError("Expecting value", response_body, 0)
+            return json.loads(response_body)
+
+        mock_response.json = json_func
+
+        return mock_response
+
     def _api_get(self, endpoint):
-        return requests.get(f"{self.BASE_URL}{endpoint}")
+        return self._simulate_request('GET', endpoint)
 
     def _api_post(self, endpoint, data=None):
-        return requests.post(f"{self.BASE_URL}{endpoint}", json=data)
+        return self._simulate_request('POST', endpoint, body=data)
 
     def _api_put(self, endpoint, data=None):
-        return requests.put(f"{self.BASE_URL}{endpoint}", json=data)
+        return self._simulate_request('PUT', endpoint, body=data)
 
     def _api_delete(self, endpoint):
-        return requests.delete(f"{self.BASE_URL}{endpoint}")
+        return self._simulate_request('DELETE', endpoint)
 
     def _create_profile(self, name="Test Profile"):
         data = {
             "name": name,
             "email": f"{name.lower().replace(' ', '_')}@example.com",
-            "userData": json.dumps({"name": name})
+            "userData": {"name": name}
         }
         response = self._api_post("/profiles", data)
         self.assertEqual(response.status_code, 201)
