@@ -207,5 +207,6 @@ class TestApi(unittest.TestCase):
         self.assertEqual(jan_data['opportunités'], 2)
         self.assertEqual(feb_data['opportunités'], 1)
 
+
 if __name__ == '__main__':
     unittest.main()

@@ -19,8 +19,7 @@ import database as db
 
 # --- Gestion du Modèle d'IA ---
 MODEL_PATH = 'opportunity_model.joblib'
-model_lock = threading.Lock()
-# Le modèle est chargé ici et injecté dans les modules qui en ont besoin.
+model_lock = threading.Lock()  # Le modèle est chargé ici et injecté dans les modules qui en ont besoin.
 model = None
 
 def load_model():
@@ -44,15 +43,18 @@ def load_model():
             model = None
             selection_logic.model = None
 
+
 def reload_model():
     """Recharge le modèle d'IA pour refléter les changements (ex: ré-entraînement)."""
     logger.info("🔄 Rechargement du modèle d'IA demandé...")
     load_model()
 
+
 def trigger_scraping_job(r):
     """Envoie un job de scraping à la file d'attente Redis."""
     logger.info("🚀 Envoi d'un job de scraping à la file d'attente...")
     r.publish('scraping_jobs', 'start_scraping')
+
 
 def run_scheduler(r):
     """Runs the scheduled tasks for scraping."""
@@ -63,6 +65,7 @@ def run_scheduler(r):
     while True:
         schedule.run_pending()
         time.sleep(1)
+
 
 def run_training_scheduler(config):
     """Exécute les tâches planifiées pour l'entraînement du modèle d'IA."""
@@ -82,6 +85,7 @@ def run_training_scheduler(config):
         schedule.run_pending()
         time.sleep(60)
 
+
 def run_email_scheduler(config):
     """Runs the scheduled tasks for email checking."""
     email_config = config.get('email_handler', {})
@@ -95,6 +99,7 @@ def run_email_scheduler(config):
     while True:
         schedule.run_pending()
         time.sleep(1)
+
 
 if __name__ == "__main__":
     # 0. Charger le modèle d'IA au démarrage

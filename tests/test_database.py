@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 import database as db
 
+
 class TestDatabase(unittest.TestCase):
 
     conn = None
@@ -152,7 +153,7 @@ class TestDatabase(unittest.TestCase):
         profile_id = db.create_profile("Test User", "test@example.com", {"city": "Testville"})
         self.assertIsNotNone(profile_id)
         profiles = db.get_profiles()
-        self.assertEqual(len(profiles), 2) # Default + new one
+        self.assertEqual(len(profiles), 2)  # Default + new one
 
         # 2. Set the new profile as active
         db.set_active_profile(profile_id)
@@ -200,6 +201,7 @@ class TestDatabase(unittest.TestCase):
         # Verify clearance
         self.assertEqual(len(db.get_opportunities(profile1_id)), 1)
         self.assertEqual(len(db.get_opportunities(profile2_id)), 0)
+
 
 if __name__ == '__main__':
     unittest.main()

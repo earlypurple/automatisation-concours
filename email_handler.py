@@ -6,12 +6,12 @@ import email
 import re
 import requests
 import database as db
-from email.header import decode_header
 import os
 from dotenv import load_dotenv
 from logger import logger
 
 load_dotenv()
+
 
 def find_confirmation_link(body):
     """
@@ -29,6 +29,7 @@ def find_confirmation_link(body):
             return url
 
     return None
+
 
 import json
 from datetime import datetime
@@ -76,6 +77,7 @@ def process_pending_confirmations(config):
         if 'mail' in locals() and mail.state != 'LOGOUT':
             mail.logout()
 
+
 def check_email_for_opportunity(mail, opportunity, details):
     """Cherche un e-mail de confirmation pour une opportunité spécifique."""
     try:
@@ -110,7 +112,7 @@ def check_email_for_opportunity(mail, opportunity, details):
                     requests.get(link, timeout=15, headers={'User-Agent': 'Mozilla/5.0'}).raise_for_status()
                     db.update_opportunity_status(opportunity['id'], 'success', f"Confirmation par e-mail réussie via le lien: {link}")
                     mail.store(num, '+FLAGS', '\\Seen')
-                    return # On a trouvé le bon e-mail, on passe à l'opportunité suivante
+                    return  # On a trouvé le bon e-mail, on passe à l'opportunité suivante
                 except requests.RequestException as e:
                     logger.error(f"Erreur en visitant le lien pour l'opportunité #{opportunity['id']}: {e}")
 

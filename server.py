@@ -1,6 +1,5 @@
 import http.server
 import socketserver
-import socket
 import json
 import os
 import webbrowser
@@ -8,7 +7,6 @@ import threading
 import queue
 import time
 import database as db
-import subprocess
 import random
 import re
 import requests
@@ -19,6 +17,7 @@ from config_handler import config_handler
 from logger import logger
 
 load_dotenv()
+
 
 class APIServer:
     def __init__(self, host='localhost', port=8080, stats_provider=None):
@@ -53,7 +52,7 @@ class APIServer:
         if mode == "random":
             return random.choice(self.proxies)
         elif mode == "sequential":
-            if not self.proxies: # Extra check
+            if not self.proxies:  # Extra check
                 return None
             proxy = self.proxies[self.proxy_index]
             self.proxy_index = (self.proxy_index + 1) % len(self.proxies)
@@ -128,7 +127,6 @@ class APIServer:
                 continue
         logger.info("🤖 Le travailleur de participation est arrêté.")
 
-
     def run(self):
         # Démarrer le worker
         self.worker_thread = threading.Thread(target=self._worker, daemon=True)
@@ -152,11 +150,12 @@ class APIServer:
         logger.info("Arrêt du serveur...")
         self.stop_worker_event.set()
         if self.worker_thread:
-            self.worker_thread.join() # Attendre que le worker termine
+            self.worker_thread.join()  # Attendre que le worker termine
         if self.server:
             self.server.shutdown()
             self.server.server_close()
             logger.info("Serveur arrêté.")
+
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, stats_provider=None, api_server=None, **kwargs):
@@ -340,6 +339,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.api_server.participation_queue.put(job)
         db.update_opportunity_status(opp_id, 'pending', 'Participation mise en file d\'attente.')
         self.send_json_response(202, {'success': True, 'message': 'Participation en file d\'attente.'})
+
 
 if __name__ == "__main__":
     # You can customize the stats_provider if needed

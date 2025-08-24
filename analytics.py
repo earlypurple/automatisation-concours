@@ -1,4 +1,3 @@
-import sqlite3
 from collections import defaultdict
 from datetime import datetime
 from database import db_cursor
@@ -28,10 +27,10 @@ def get_analytics_data(profile_id):
         try:
             # `detected_at` est au format ISO
             detected_date = datetime.fromisoformat(row['detected_at'])
-            month_key = detected_date.strftime('%Y-%m') # Format 'YYYY-MM'
+            month_key = detected_date.strftime('%Y-%m')  # Format 'YYYY-MM'
             opportunities_over_time[month_key] += 1
         except (ValueError, TypeError):
-            continue # Ignorer les dates au format incorrect
+            continue  # Ignorer les dates au format incorrect
 
     # Formatter pour `recharts`, en s'assurant que c'est trié
     chart_data = []
@@ -47,8 +46,7 @@ def get_analytics_data(profile_id):
     # Trier par clé (YYYY-MM) pour assurer l'ordre chronologique
     chart_data.sort(key=lambda x: x['sort_key'])
     for item in chart_data:
-        del item['sort_key'] # Retirer la clé de tri
-
+        del item['sort_key']  # Retirer la clé de tri
 
     # 2. Calculer le taux de succès et autres statistiques de participation
     with db_cursor() as cur:

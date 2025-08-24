@@ -25,5 +25,6 @@ def main():
                 logger.error(f"❌ Erreur pendant l'exécution du job de scraping: {e}")
         time.sleep(1)
 
+
 if __name__ == "__main__":
     main()

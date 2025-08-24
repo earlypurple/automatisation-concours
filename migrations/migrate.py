@@ -18,6 +18,7 @@ def get_db_file():
     from database import DB_FILE
     return DB_FILE
 
+
 def get_applied_migrations(cursor):
     """Gets the set of applied migration filenames."""
     try:
@@ -26,6 +27,7 @@ def get_applied_migrations(cursor):
     except sqlite3.OperationalError:
         # If the table doesn't exist, no migrations have been applied
         return set()
+
 
 def apply_migration(cursor, filepath):
     """Applies a single migration script."""
@@ -40,6 +42,7 @@ def apply_migration(cursor, filepath):
     # Record the migration
     cursor.execute("INSERT INTO schema_migrations (version) VALUES (?)", (filename,))
     logger.info(f"Successfully applied {filename}.")
+
 
 def main():
     """
@@ -85,6 +88,7 @@ def main():
         raise
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     # This allows the script to be run directly for manual migrations
