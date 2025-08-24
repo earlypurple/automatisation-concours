@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 import requests
 import threading
 import time
@@ -206,6 +207,33 @@ class TestApi(unittest.TestCase):
         self.assertIsNotNone(feb_data)
         self.assertEqual(jan_data['opportunités'], 2)
         self.assertEqual(feb_data['opportunités'], 1)
+
+    def test_04_health_check(self):
+        """Tests the /api/health endpoint."""
+        # Scenario 1: All services are up
+        # We need to mock the external services checks
+        with mock.patch('server.check_scraper_status', return_value='ok'), \
+             mock.patch('database.check_db_status', return_value='ok'):
+            response = self._api_get("/health")
+            self.assertEqual(response.status_code, 200)
+            data = response.json()
+            self.assertEqual(data, {'api': 'ok', 'database': 'ok', 'scraper': 'ok'})
+
+        # Scenario 2: Scraper is down
+        with mock.patch('server.check_scraper_status', return_value='error'), \
+             mock.patch('database.check_db_status', return_value='ok'):
+            response = self._api_get("/health")
+            self.assertEqual(response.status_code, 503)
+            data = response.json()
+            self.assertEqual(data, {'api': 'ok', 'database': 'ok', 'scraper': 'error'})
+
+        # Scenario 3: Database is down
+        with mock.patch('server.check_scraper_status', return_value='ok'), \
+             mock.patch('database.check_db_status', return_value='error'):
+            response = self._api_get("/health")
+            self.assertEqual(response.status_code, 503)
+            data = response.json()
+            self.assertEqual(data, {'api': 'ok', 'database': 'error', 'scraper': 'ok'})
 
 if __name__ == '__main__':
     unittest.main()
