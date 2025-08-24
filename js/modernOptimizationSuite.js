@@ -1,6 +1,13 @@
 // modernOptimizationSuite.js
 // Suite d'optimisation moderne intégrant tous les nouveaux systèmes
 
+// Environment compatibility polyfills
+if (typeof performance === 'undefined') {
+    global.performance = {
+        now: () => Date.now()
+    };
+}
+
 class ModernOptimizationSuite {
     constructor() {
         this.version = "4.1.0";
@@ -769,11 +776,16 @@ if (typeof window !== 'undefined') {
     window.ModernOptimizationSuite = ModernOptimizationSuite;
     
     // Initialisation automatique quand le DOM est prêt
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                window.modernOptimizationSuite = new ModernOptimizationSuite();
+            });
+        } else {
             window.modernOptimizationSuite = new ModernOptimizationSuite();
-        });
-    } else {
-        window.modernOptimizationSuite = new ModernOptimizationSuite();
+        }
     }
+} else if (typeof module !== 'undefined' && module.exports) {
+    // Node.js environment
+    module.exports = ModernOptimizationSuite;
 }
