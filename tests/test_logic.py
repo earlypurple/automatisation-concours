@@ -71,6 +71,45 @@ class TestSelectionLogic(unittest.TestCase):
         score = selection_logic.calculate_score(opportunity)
         self.assertEqual(score, expected_score)
 
+    def test_fallback_with_missing_keys(self):
+        """
+        Test that the fallback logic handles missing keys gracefully.
+        """
+        opportunity = {
+            'value': 50, # score = 75
+            # priority is missing
+        }
+        # Expected score: 50 * 1.5 = 75
+        self.assertEqual(selection_logic.calculate_score(opportunity), 75)
+
+        opportunity_2 = {
+            'priority': 8, # score = 80
+            'entries_count': 1000 # score -= 10
+        }
+        # Expected score: 8 * 10 - (1000 / 100) = 70
+        self.assertEqual(selection_logic.calculate_score(opportunity_2), 70)
+
+    def test_fallback_with_invalid_date(self):
+        """
+        Test that the fallback logic handles invalid date formats.
+        """
+        opportunity = {
+            'value': 10, # score = 15
+            'expires_at': 'not-a-date'
+        }
+        # Should not add the expiry bonus and not crash
+        self.assertEqual(selection_logic.calculate_score(opportunity), 15)
+
+    def test_fallback_handles_negative_score(self):
+        """
+        Test that the score cannot be negative.
+        """
+        opportunity = {
+            'entries_count': 50000 # score = -500
+        }
+        # max(0, score) should return 0
+        self.assertEqual(selection_logic.calculate_score(opportunity), 0)
+
     def test_calculate_score_model_exception(self):
         """
         Test that fallback logic is used if the model throws an exception.
