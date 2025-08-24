@@ -15,6 +15,10 @@ from urllib.parse import urlparse
 from dotenv import load_dotenv
 from config_handler import config_handler
 from logger import logger
+from rate_limiter import rate_limiter, rate_limit_decorator
+from intelligent_cache import api_cache, analytics_cache
+from auto_backup import backup_manager
+from secure_storage import encrypt_for_storage, decrypt_from_storage
 
 load_dotenv()
 
@@ -26,6 +30,7 @@ class APIServer:
         self.stats_provider = stats_provider
         self.server = None
         self.proxy_index = 0
+        self.start_time = time.time()  # Pour le tracking de l'uptime
 
         # --- Config & Proxies ---
         self.config = config_handler.get_config()
@@ -239,13 +244,41 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     # --- Handlers ---
     def handle_get_data(self):
+        # Rate limiting pour les données
+        client_ip = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
+        if not rate_limiter.is_allowed(client_ip, 'api'):
+            return self.send_json_response(429, {
+                'error': 'Rate limit exceeded',
+                'message': 'Too many requests. Please try again later.',
+                'retry_after': 60
+            })
+        
+        # Essayer le cache d'abord
+        cache_key = f"opportunities_data_{client_ip}"
+        cached_data = api_cache.get(cache_key)
+        if cached_data:
+            cached_data['cached'] = True
+            return self.send_json_response(200, cached_data)
+        
         active_profile = db.get_active_profile()
         if not active_profile:
             return self.send_json_response(404, {'error': 'No active profile found'})
+        
         opportunities = db.get_opportunities(active_profile['id'])
         stats = self.stats_provider() if self.stats_provider else {}
-        data = {'opportunities': opportunities, 'stats': stats}
-        self.send_json_response(200, data)
+        
+        response_data = {
+            'opportunities': opportunities,
+            'stats': stats,
+            'profile': active_profile,
+            'cached': False,
+            'timestamp': time.time()
+        }
+        
+        # Mettre en cache pour 5 minutes
+        api_cache.set(cache_key, response_data, ttl=300)
+        
+        self.send_json_response(200, response_data)
 
     def handle_get_profiles(self):
         profiles = db.get_profiles()
@@ -313,6 +346,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_json_response(404, {'error': 'Proxy not found'})
 
     def handle_participation(self):
+        # Rate limiting strict pour les participations
+        client_ip = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
+        if not rate_limiter.is_allowed(client_ip, 'heavy'):
+            return self.send_json_response(429, {
+                'error': 'Participation rate limit exceeded',
+                'message': 'Too many participation requests. Please wait before trying again.',
+                'retry_after': 120
+            })
+        
         body = self.get_json_body()
         opp_id = body.get('id')
 
@@ -338,7 +380,141 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         }
         self.api_server.participation_queue.put(job)
         db.update_opportunity_status(opp_id, 'pending', 'Participation mise en file d\'attente.')
+        
+        # Log sécurisé
+        logger.info(f"Participation queued for opportunity {opp_id} from {client_ip}")
+        
         self.send_json_response(202, {'success': True, 'message': 'Participation en file d\'attente.'})
+
+    # --- Nouveaux handlers pour les fonctionnalités avancées ---
+    
+    def handle_health(self):
+        """Endpoint de santé du système avec métriques"""
+        client_ip = self.client_address[0] if hasattr(self, 'client_address') else 'unknown'
+        
+        health_data = {
+            'status': 'healthy',
+            'timestamp': time.time(),
+            'version': '4.0.0',
+            'services': {
+                'database': self._check_database_health(),
+                'cache': self._check_cache_health(),
+                'backup': self._check_backup_health(),
+                'rate_limiter': self._check_rate_limiter_health()
+            },
+            'system': {
+                'uptime': time.time() - self.start_time if hasattr(self, 'start_time') else 0,
+                'queue_size': self.participation_queue.qsize(),
+                'active_profile': db.get_active_profile() is not None
+            }
+        }
+        
+        # Déterminer le statut global
+        all_services_ok = all(service['status'] == 'ok' for service in health_data['services'].values())
+        if not all_services_ok:
+            health_data['status'] = 'degraded'
+        
+        status_code = 200 if health_data['status'] == 'healthy' else 503
+        self.send_json_response(status_code, health_data)
+
+    def handle_cache_stats(self):
+        """Statistiques du cache"""
+        cache_stats = {
+            'api_cache': api_cache.get_stats(),
+            'analytics_cache': analytics_cache.get_stats(),
+            'total_memory_mb': (api_cache.get_stats()['memory_usage_mb'] + 
+                              analytics_cache.get_stats()['memory_usage_mb'])
+        }
+        self.send_json_response(200, cache_stats)
+
+    def handle_backup_stats(self):
+        """Statistiques des sauvegardes"""
+        backup_stats = backup_manager.get_backup_stats()
+        self.send_json_response(200, backup_stats)
+
+    def handle_create_backup(self):
+        """Crée une sauvegarde manuelle"""
+        try:
+            body = self.get_json_body()
+            description = body.get('description', 'Sauvegarde manuelle via API')
+            
+            backup_path = backup_manager.create_backup('manual', description)
+            if backup_path:
+                self.send_json_response(201, {
+                    'success': True,
+                    'message': 'Sauvegarde créée avec succès',
+                    'backup_path': backup_path
+                })
+            else:
+                self.send_json_response(500, {'error': 'Échec de la création de la sauvegarde'})
+        except Exception as e:
+            logger.error(f"Backup creation error: {e}")
+            self.send_json_response(500, {'error': 'Erreur interne du serveur'})
+
+    def handle_clear_cache(self):
+        """Nettoie le cache"""
+        try:
+            body = self.get_json_body()
+            cache_type = body.get('type', 'all')
+            
+            if cache_type == 'all' or cache_type == 'api':
+                api_cache.clear()
+            if cache_type == 'all' or cache_type == 'analytics':
+                analytics_cache.clear()
+            
+            self.send_json_response(200, {
+                'success': True,
+                'message': f'Cache {cache_type} nettoyé avec succès'
+            })
+        except Exception as e:
+            logger.error(f"Cache clear error: {e}")
+            self.send_json_response(500, {'error': 'Erreur interne du serveur'})
+
+    # --- Méthodes utilitaires pour le health check ---
+    
+    def _check_database_health(self):
+        try:
+            profiles = db.get_profiles()
+            return {
+                'status': 'ok',
+                'profiles_count': len(profiles),
+                'has_active_profile': db.get_active_profile() is not None
+            }
+        except Exception as e:
+            return {'status': 'error', 'error': str(e)}
+
+    def _check_cache_health(self):
+        try:
+            api_stats = api_cache.get_stats()
+            return {
+                'status': 'ok',
+                'hit_rate': api_stats['hit_rate_percent'],
+                'memory_usage_mb': api_stats['memory_usage_mb']
+            }
+        except Exception as e:
+            return {'status': 'error', 'error': str(e)}
+
+    def _check_backup_health(self):
+        try:
+            backup_stats = backup_manager.get_backup_stats()
+            return {
+                'status': 'ok',
+                'total_backups': backup_stats['total_backups'],
+                'auto_enabled': backup_stats['auto_backup_enabled']
+            }
+        except Exception as e:
+            return {'status': 'error', 'error': str(e)}
+
+    def _check_rate_limiter_health(self):
+        try:
+            # Test basique du rate limiter
+            test_result = rate_limiter.is_allowed('health_check', 'api')
+            return {
+                'status': 'ok',
+                'test_passed': test_result
+            }
+        except Exception as e:
+            return {'status': 'error', 'error': str(e)}
 
 
 if __name__ == "__main__":

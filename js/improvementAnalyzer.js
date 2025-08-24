@@ -51,16 +51,31 @@ class ImprovementAnalyzer {
     async analyzeCriticalIssues(analysis) {
         const critical = analysis.categories.critical;
 
-        // Test de connectivité API
+        // Test de connectivité API avec le nouveau endpoint health
         try {
-            await fetch('/api/health');
+            const response = await fetch('/api/health');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const healthData = await response.json();
+            
+            // Vérifier le statut de santé
+            if (healthData.status !== 'healthy') {
+                critical.push({
+                    issue: "Services dégradés",
+                    description: `État du système: ${healthData.status}`,
+                    priority: 8,
+                    effort: "Moyen",
+                    solution: "Vérifier les services défaillants dans /api/health"
+                });
+            }
         } catch (error) {
             critical.push({
-                issue: "API non disponible",
-                description: "L'API backend n'est pas accessible",
+                issue: "API non disponible ou health endpoint manquant",
+                description: "L'API backend n'est pas accessible ou l'endpoint /api/health n'existe pas",
                 priority: 10,
                 effort: "Moyen",
-                solution: "Vérifier la configuration serveur et les endpoints"
+                solution: "Vérifier la configuration serveur et implémenter l'endpoint health"
             });
         }
 
