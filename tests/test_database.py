@@ -3,93 +3,53 @@ import os
 import sys
 import json
 import sqlite3
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+import contextlib
 from unittest.mock import patch
-from contextlib import contextmanager
 
 # Add the root directory to the Python path to allow importing project modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import database as db
-
+from models import Base
 
 class TestDatabase(unittest.TestCase):
-
-    conn = None
-    db_cursor_patcher = None
-
-    @classmethod
-    def setUpClass(cls):
-        """
-        Set up a single, shared in-memory SQLite database for all tests in this class.
-        This method manually replicates the migration logic from `migrations/migrate.py`
-        to ensure the schema is correctly built in the in-memory database.
-        """
-        cls.conn = sqlite3.connect(':memory:')
-        cls.conn.row_factory = sqlite3.Row
-
-        cursor = cls.conn.cursor()
-
-        # 1. Create the migrations tracking table, mimicking the migration script.
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS schema_migrations (
-                version TEXT PRIMARY KEY NOT NULL,
-                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-
-        # 2. Find all migration .sql files and apply them in sorted order.
-        versions_dir = os.path.join(os.path.dirname(__file__), '..', 'migrations', 'versions')
-        migration_files = sorted([f for f in os.listdir(versions_dir) if f.endswith('.sql')])
-
-        for filename in migration_files:
-            filepath = os.path.join(versions_dir, filename)
-            with open(filepath, 'r') as f:
-                sql_script = f.read()
-
-            # Apply the entire SQL script from the migration file.
-            cursor.executescript(sql_script)
-            # Record that this migration version has been applied.
-            cursor.execute("INSERT INTO schema_migrations (version) VALUES (?)", (filename,))
-
-        cls.conn.commit()
-        cursor.close()
-
-        # 3. Patch the db_cursor context manager to use our in-memory connection.
-        cls.db_cursor_patcher = patch('database.db_cursor')
-        mock_db_cursor = cls.db_cursor_patcher.start()
-
-        @contextmanager
-        def mock_cursor_context():
-            """A mock context manager that yields a cursor from our shared connection."""
-            c = cls.conn.cursor()
-            try:
-                yield c
-                cls.conn.commit()
-            except sqlite3.Error:
-                cls.conn.rollback()
-                raise
-
-        mock_db_cursor.side_effect = mock_cursor_context
-
-    @classmethod
-    def tearDownClass(cls):
-        """Clean up after all tests in the class."""
-        cls.db_cursor_patcher.stop()
-        if cls.conn:
-            cls.conn.close()
 
     def setUp(self):
         """
         This method is called before each test to ensure a clean state.
         """
-        # It's faster to delete data than to rebuild the schema for each test.
-        with db.db_cursor() as cur:
-            cur.execute("DELETE FROM participation_history")
-            cur.execute("DELETE FROM opportunities")
-            cur.execute("DELETE FROM profiles")
+        self.engine = create_engine('sqlite:///:memory:')
+        Base.metadata.create_all(self.engine)
 
-        # Create the default profile needed for many tests.
+        self.db_cursor_patcher = patch('database.db_cursor')
+        mock_db_cursor = self.db_cursor_patcher.start()
+
+        @contextlib.contextmanager
+        def mock_cursor_context():
+            connection = self.engine.raw_connection().driver_connection
+            connection.row_factory = sqlite3.Row
+            cursor = connection.cursor()
+            try:
+                yield cursor
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                pass # The connection is managed by the engine
+
+        mock_db_cursor.side_effect = mock_cursor_context
+
         db.init_db()
+
+
+    def tearDown(self):
+        """Clean up after all tests in the class."""
+        self.db_cursor_patcher.stop()
+        self.engine.dispose()
+
 
     def test_init_db_creates_default_profile(self):
         """

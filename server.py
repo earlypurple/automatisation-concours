@@ -226,6 +226,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.send_json_response(404, {'error': 'Not Found'})
 
         # Serve static files or the main index.html for the React app
+        if self.path == '/api/docs':
+            self.path = '/swagger/index.html'
+        elif self.path == '/swagger.yml':
+            # Serve the swagger.yml file from the root directory
+            try:
+                with open('swagger.yml', 'rb') as f:
+                    self.send_response(200)
+                    self.send_header('Content-type', 'application/x-yaml')
+                    self.end_headers()
+                    self.wfile.write(f.read())
+                return
+            except FileNotFoundError:
+                return self.send_json_response(404, {'error': 'swagger.yml not found'})
+
         path = self.translate_path(self.path)
         if not os.path.exists(path):
             self.path = 'index.html'

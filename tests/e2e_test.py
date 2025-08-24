@@ -9,13 +9,19 @@ from server import APIServer
 import subprocess
 
 import database
+from alembic.config import Config
+from alembic import command
 
 @pytest.fixture(scope="module")
 def servers():
     # Initialize a clean database for testing
     if os.path.exists(database.DB_FILE):
         os.remove(database.DB_FILE)
-    database.run_migrations()
+
+    # Run migrations
+    alembic_cfg = Config("alembic.ini")
+    command.upgrade(alembic_cfg, "head")
+
     database.init_db()
 
     # Add some sample data for testing

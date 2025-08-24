@@ -16,6 +16,8 @@ import server
 import database as db
 import analytics
 from intelligent_cache import api_cache, analytics_cache
+from alembic.config import Config
+from alembic import command
 
 class TestApi(unittest.TestCase):
 
@@ -26,7 +28,9 @@ class TestApi(unittest.TestCase):
         if os.path.exists(cls.db_file):
             os.remove(cls.db_file)
 
-        db.run_migrations()
+        alembic_cfg = Config("alembic.ini")
+        alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{cls.db_file}")
+        command.upgrade(alembic_cfg, "head")
         db.init_db()
 
         # We still need the APIServer instance because the Handler class depends on it

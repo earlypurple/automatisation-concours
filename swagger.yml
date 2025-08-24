@@ -1,0 +1,231 @@
+openapi: 3.0.0
+info:
+  title: Surveillance API
+  description: API for managing the surveillance system.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      description: Returns the health status of the application and its services.
+      responses:
+        '200':
+          description: A JSON object with the health status.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: number
+                    example: 1678886400.0
+                  version:
+                    type: string
+                    example: 4.0.0
+        '503':
+          description: The service is unavailable.
+
+  /data:
+    get:
+      summary: Get Application Data
+      description: Returns the main application data, including opportunities, stats, and the active profile.
+      responses:
+        '200':
+          description: A JSON object with the application data.
+        '404':
+          description: No active profile found.
+        '429':
+          description: Rate limit exceeded.
+  /config:
+    get:
+      summary: Get Configuration
+      description: Returns the current configuration of the application.
+      responses:
+        '200':
+          description: A JSON object with the configuration.
+    post:
+      summary: Save Configuration
+      description: Saves the configuration of the application.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Configuration saved successfully.
+        '400':
+          description: Invalid request body.
+
+  /proxies:
+    get:
+      summary: Get Proxies
+      description: Returns the list of proxies.
+      responses:
+        '200':
+          description: A JSON array of proxies.
+    post:
+      summary: Add Proxy
+      description: Adds a new proxy to the list.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proxy_url:
+                  type: string
+                  example: http://user:pass@host:port
+      responses:
+        '201':
+          description: Proxy added successfully.
+        '400':
+          description: proxy_url is required.
+        '409':
+          description: Proxy already exists.
+    delete:
+      summary: Delete Proxy
+      description: Deletes a proxy from the list.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                proxy_url:
+                  type: string
+                  example: http://user:pass@host:port
+      responses:
+        '200':
+          description: Proxy deleted successfully.
+        '400':
+          description: proxy_url is required.
+        '404':
+          description: Proxy not found.
+
+  /participate:
+    post:
+      summary: Participate in an Opportunity
+      description: Queues an opportunity for participation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  example: 1
+      responses:
+        '202':
+          description: Participation queued successfully.
+        '400':
+          description: No active profile to participate with.
+        '404':
+          description: Opportunity not found.
+        '429':
+          description: Rate limit exceeded.
+
+  /profiles/active:
+    get:
+      summary: Get Active Profile
+      description: Returns the currently active user profile.
+      responses:
+        '200':
+          description: A JSON object with the active profile.
+
+  /profiles/{id}:
+    put:
+      summary: Update Profile
+      description: Updates an existing user profile.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+    responses:
+      '200':
+        description: Profile updated successfully.
+      '400':
+        description: Invalid request body.
+      '404':
+        description: Profile not found.
+    delete:
+      summary: Delete Profile
+      description: Deletes a user profile.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Profile deleted successfully.
+        '400':
+          description: Cannot delete the last profile.
+        '404':
+          description: Profile not found.
+
+  /profiles/{id}/activate:
+    post:
+      summary: Activate Profile
+      description: Sets a profile as the active profile.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Profile activated successfully.
+        '404':
+          description: Profile not found.
+
+  /profiles:
+    get:
+      summary: Get Profiles
+      description: Returns a list of all user profiles.
+      responses:
+        '200':
+          description: A JSON array of profiles.
+    post:
+      summary: Create Profile
+      description: Creates a new user profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: New Profile
+                email:
+                  type: string
+                  example: new@example.com
+      responses:
+        '201':
+          description: Profile created successfully.
+        '400':
+          description: Invalid request body.

@@ -1,25 +1,25 @@
 import React from 'react';
 
-function ProxiesSettings({ config, handleInputChange }) {
+function CaptchaSolverSettings({ config, handleInputChange }) {
   return (
     <div>
-      <h3>Proxies</h3>
+      <h3>Captcha Solver</h3>
       <label>
         Enabled:
         <input
           type="checkbox"
-          name="proxies.enabled"
-          checked={config.proxies.enabled}
+          name="captcha_solver.enabled"
+          checked={config.captcha_solver.enabled}
           onChange={handleInputChange}
         />
       </label>
       <br />
       <label>
-        Rotation Mode:
+        Provider:
         <input
           type="text"
-          name="proxies.rotation_mode"
-          value={config.proxies.rotation_mode}
+          name="captcha_solver.provider"
+          value={config.captcha_solver.provider}
           onChange={handleInputChange}
         />
       </label>
@@ -28,4 +28,4 @@ function ProxiesSettings({ config, handleInputChange }) {
   );
 }
 
-export default ProxiesSettings;
+export default CaptchaSolverSettings;

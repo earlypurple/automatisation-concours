@@ -12,3 +12,5 @@ playwright
 tenacity
 flake8
 cryptography>=3.4
+alembic>=1.7.0
+SQLAlchemy>=1.4.0
