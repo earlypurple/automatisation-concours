@@ -23,6 +23,15 @@ from secure_storage import encrypt_for_storage, decrypt_from_storage
 load_dotenv()
 
 
+def check_scraper_status():
+    """Vérifie l'état du scraper en testant la connectivité de base"""
+    try:
+        # Test simple pour vérifier si le module de scraping est accessible
+        import scraper
+        return 'ok'
+    except Exception as e:
+        logger.warning(f"Scraper status check failed: {e}")
+        return 'degraded'
 
 
 class APIServer:
@@ -168,6 +177,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, stats_provider=None, api_server=None, **kwargs):
         self.stats_provider = stats_provider
         self.api_server = api_server
+        # Initialize sites_config for compatibility with existing code
+        self.sites_config = config_handler.get_config().get('sites', {})
         self.routes = {
             'GET': {
                 r'/api/data$': self.handle_get_data,
@@ -349,21 +360,72 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_json_response(404, {'error': 'Proxy not found'})
 
     def handle_health_check(self):
-        """Traite les demandes de bilan de santé."""
-        db_status = db.check_db_status()
-        scraper_status = check_scraper_status()
+        """Traite les demandes de bilan de santé avec métriques avancées."""
+        try:
+            db_status = db.check_db_status()
+            scraper_status = check_scraper_status()
+            
+            # Métriques système avancées
+            uptime = time.time() - self.api_server.start_time if self.api_server else 0
+            queue_size = self.api_server.participation_queue.qsize() if self.api_server else 0
+            
+            status = {
+                'status': 'healthy',
+                'timestamp': time.time(),
+                'version': '4.0.0',
+                'services': {
+                    'api': {'status': 'ok', 'uptime_seconds': uptime},
+                    'database': {'status': db_status, 'active_profile': db.get_active_profile() is not None},
+                    'scraper': {'status': scraper_status},
+                    'queue': {'status': 'ok', 'size': queue_size, 'max_size': 1000}
+                },
+                'system': {
+                    'uptime_seconds': uptime,
+                    'uptime_human': f"{int(uptime//3600)}h {int((uptime%3600)//60)}m",
+                    'memory_usage': self._get_memory_usage(),
+                    'cache_enabled': True
+                }
+            }
 
-        status = {
-            'api': 'ok',
-            'database': db_status,
-            'scraper': scraper_status
-        }
-
-        # Vérifier si tous les services sont "ok"
-        all_ok = all(value == 'ok' for value in status.values())
-        status_code = 200 if all_ok else 503
-
-        self.send_json_response(status_code, status)
+            # Vérifier si tous les services sont "ok"
+            all_services_ok = all(
+                service['status'] == 'ok' 
+                for service in status['services'].values()
+            )
+            
+            if not all_services_ok:
+                status['status'] = 'degraded'
+            
+            # Ajouter des alertes si nécessaire
+            status['alerts'] = []
+            if queue_size > 800:
+                status['alerts'].append({
+                    'level': 'warning',
+                    'message': f'Queue size high: {queue_size}/1000'
+                })
+            
+            status_code = 200 if status['status'] == 'healthy' else 503
+            self.send_json_response(status_code, status)
+            
+        except Exception as e:
+            logger.error(f"Health check error: {e}")
+            self.send_json_response(503, {
+                'status': 'error',
+                'message': 'Health check failed',
+                'error': str(e)
+            })
+    
+    def _get_memory_usage(self):
+        """Obtient l'utilisation mémoire si disponible"""
+        try:
+            import psutil
+            process = psutil.Process()
+            return {
+                'rss_mb': round(process.memory_info().rss / 1024 / 1024, 2),
+                'vms_mb': round(process.memory_info().vms / 1024 / 1024, 2)
+            }
+        except ImportError:
+            return {'status': 'unavailable', 'reason': 'psutil not installed'}
 
     def handle_participation(self):
         # Rate limiting strict pour les participations

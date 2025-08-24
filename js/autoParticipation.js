@@ -19,6 +19,31 @@ class AutoParticipationManager {
             lastParticipation: null
         };
         this.validator = new DataValidator();
+        
+        // Intégration avec les nouveaux systèmes d'optimisation
+        this.optimizationSuite = null;
+        this.aiEnhanced = false;
+        this.smartCacheEnabled = false;
+        this.gamificationEnabled = false;
+        
+        this.initializeOptimizations();
+    }
+
+    async initializeOptimizations() {
+        // Tentative d'intégration avec la suite d'optimisation moderne
+        if (typeof window !== 'undefined' && window.modernOptimizationSuite) {
+            try {
+                this.optimizationSuite = window.modernOptimizationSuite;
+                this.optimizationSuite.integrateWithAutoParticipation(this);
+                this.aiEnhanced = !!this.optimizationSuite.modules.aiOptimizer;
+                this.smartCacheEnabled = !!this.optimizationSuite.modules.smartCache;
+                this.gamificationEnabled = !!this.optimizationSuite.modules.gamification;
+                
+                console.log('🔗 Auto Participation enhanced with modern optimization suite');
+            } catch (error) {
+                console.warn('Failed to integrate optimization suite:', error);
+            }
+        }
     }
 
     async start() {
@@ -146,8 +171,19 @@ class AutoParticipationManager {
         ];
     }
 
-    selectBestOpportunity(opportunities) {
-        // Filtrage et tri des opportunités
+    async selectBestOpportunity(opportunities) {
+        // Utiliser l'optimiseur IA si disponible
+        if (this.aiEnhanced && this.optimizationSuite.modules.aiOptimizer) {
+            try {
+                const optimized = await this.optimizationSuite.modules.aiOptimizer.optimizeOpportunities(opportunities);
+                console.log('🧠 Using AI-optimized opportunity selection');
+                return optimized[0];
+            } catch (error) {
+                console.warn('AI optimization failed, falling back to standard selection:', error);
+            }
+        }
+        
+        // Filtrage et tri des opportunités (méthode standard)
         return opportunities
             .filter(opp => 
                 opp.priority >= this.config.priorityThreshold &&
@@ -389,6 +425,33 @@ class AutoParticipationManager {
             : `❌ Échec de participation: ${opportunity.title}`;
         
         console.log(message);
+        
+        // Intégration avec la gamification
+        if (this.gamificationEnabled && this.optimizationSuite.modules.gamification) {
+            try {
+                const result = {
+                    success: success,
+                    value_obtained: success ? opportunity.value || 0 : 0,
+                    completion_time: Date.now() - (this.stats.lastParticipation || Date.now())
+                };
+                this.optimizationSuite.modules.gamification.onParticipation(opportunity, result);
+            } catch (error) {
+                console.warn('Gamification integration error:', error);
+            }
+        }
+        
+        // Notification temps réel
+        if (this.optimizationSuite?.modules.realTimeMonitor) {
+            try {
+                this.optimizationSuite.modules.realTimeMonitor.handleParticipationResult({
+                    opportunity: opportunity,
+                    success: success,
+                    timestamp: Date.now()
+                });
+            } catch (error) {
+                console.warn('Real-time monitoring error:', error);
+            }
+        }
         
         // Envoyer notification si disponible (seulement en environnement web)
         if (typeof window !== 'undefined' && window.notifications) {
