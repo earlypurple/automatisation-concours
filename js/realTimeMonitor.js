@@ -19,6 +19,7 @@ class RealTimeMonitor {
         };
         this.performanceBuffer = [];
         this.maxBufferSize = 100;
+        this.timersStarted = false; // Flag to prevent multiple timers
     }
 
     init() {
@@ -179,6 +180,12 @@ class RealTimeMonitor {
     }
 
     startPolling() {
+        // Skip polling in Node.js test environment or if already started
+        if (typeof window === 'undefined' || this.timersStarted) {
+            return;
+        }
+        this.timersStarted = true;
+        
         // Polling fallback pour les environnements sans WebSocket
         setInterval(async () => {
             try {
@@ -252,6 +259,13 @@ class RealTimeMonitor {
     }
 
     startMetricsCollection() {
+        // Skip metrics collection in Node.js test environment or if already started
+        if (typeof window === 'undefined' || this.timersStarted) {
+            console.log('📊 Metrics collection skipped in Node.js environment');
+            return;
+        }
+        this.timersStarted = true;
+        
         // Collecte périodique des métriques système
         setInterval(() => {
             this.collectSystemMetrics();
