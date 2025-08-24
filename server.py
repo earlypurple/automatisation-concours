@@ -23,6 +23,8 @@ from secure_storage import encrypt_for_storage, decrypt_from_storage
 load_dotenv()
 
 
+
+
 class APIServer:
     def __init__(self, host='localhost', port=8080, stats_provider=None):
         self.host = host
@@ -173,6 +175,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 r'/api/profiles/active$': self.handle_get_active_profile,
                 r'/api/proxies$': self.handle_get_proxies,
                 r'/api/config$': self.handle_get_config,
+                r'/api/health$': self.handle_health_check,
             },
             'POST': {
                 r'/api/profiles$': self.handle_create_profile,
@@ -344,6 +347,23 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_json_response(200, {'message': 'Proxy deleted successfully'})
         else:
             self.send_json_response(404, {'error': 'Proxy not found'})
+
+    def handle_health_check(self):
+        """Traite les demandes de bilan de santé."""
+        db_status = db.check_db_status()
+        scraper_status = check_scraper_status()
+
+        status = {
+            'api': 'ok',
+            'database': db_status,
+            'scraper': scraper_status
+        }
+
+        # Vérifier si tous les services sont "ok"
+        all_ok = all(value == 'ok' for value in status.values())
+        status_code = 200 if all_ok else 503
+
+        self.send_json_response(status_code, status)
 
     def handle_participation(self):
         # Rate limiting strict pour les participations

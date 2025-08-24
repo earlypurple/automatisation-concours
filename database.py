@@ -261,3 +261,13 @@ def delete_profile(profile_id):
                 # Utiliser le même curseur pour activer le nouveau profil
                 cur.execute("UPDATE profiles SET is_active = 0")
                 cur.execute("UPDATE profiles SET is_active = 1 WHERE id = ?", (first_profile['id'],))
+
+def check_db_status():
+    """Vérifie l'état de la base de données."""
+    try:
+        with db_cursor() as cur:
+            cur.execute("SELECT 1")
+        return "ok"
+    except Exception as e:
+        logger.error(f"Erreur de connexion à la base de données: {e}")
+        return "error"

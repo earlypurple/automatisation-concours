@@ -1,4 +1,5 @@
 import unittest
+from unittest import mock
 import requests
 import threading
 import time
@@ -206,6 +207,7 @@ class TestApi(unittest.TestCase):
         self.assertIsNotNone(feb_data)
         self.assertEqual(jan_data['opportunités'], 2)
         self.assertEqual(feb_data['opportunités'], 1)
+
 
 
 if __name__ == '__main__':
