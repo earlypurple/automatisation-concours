@@ -12,7 +12,9 @@ DB_FILE = 'surveillance.db'
 @contextmanager
 def db_cursor():
     """Context manager for database cursor."""
-    conn = sqlite3.connect(DB_FILE)
+    # timeout to help with multi-threaded access, WAL mode for better concurrency
+    conn = sqlite3.connect(DB_FILE, timeout=10)
+    conn.execute('PRAGMA journal_mode=WAL;')
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     try:

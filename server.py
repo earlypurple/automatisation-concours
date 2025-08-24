@@ -17,6 +17,7 @@ from config_handler import config_handler
 from logger import logger
 from rate_limiter import rate_limiter, rate_limit_decorator
 from intelligent_cache import api_cache, analytics_cache
+import analytics
 from auto_backup import backup_manager
 from secure_storage import encrypt_for_storage, decrypt_from_storage
 
@@ -35,10 +36,9 @@ def check_scraper_status():
 
 
 class APIServer:
-    def __init__(self, host='localhost', port=8080, stats_provider=None):
+    def __init__(self, host='localhost', port=8080):
         self.host = host
         self.port = port
-        self.stats_provider = stats_provider
         self.server = None
         self.proxy_index = 0
         self.start_time = time.time()  # Pour le tracking de l'uptime
@@ -149,7 +149,7 @@ class APIServer:
         self.worker_thread.start()
 
         def handler_factory(*args, **kwargs):
-            return Handler(stats_provider=self.stats_provider, api_server=self, *args, **kwargs)
+            return Handler(api_server=self, *args, **kwargs)
 
         socketserver.TCPServer.allow_reuse_address = True
         self.server = socketserver.TCPServer((self.host, self.port), handler_factory)
@@ -267,19 +267,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 'retry_after': 60
             })
         
-        # Essayer le cache d'abord
-        cache_key = f"opportunities_data_{client_ip}"
+        active_profile = db.get_active_profile()
+        if not active_profile:
+            return self.send_json_response(404, {'error': 'No active profile found'})
+
+        # Essayer le cache d'abord. La clé doit être spécifique au profil.
+        cache_key = f"opportunities_data_{active_profile['id']}_{client_ip}"
         cached_data = api_cache.get(cache_key)
         if cached_data:
             cached_data['cached'] = True
             return self.send_json_response(200, cached_data)
-        
-        active_profile = db.get_active_profile()
         if not active_profile:
             return self.send_json_response(404, {'error': 'No active profile found'})
         
         opportunities = db.get_opportunities(active_profile['id'])
-        stats = self.stats_provider() if self.stats_provider else {}
+        stats = analytics.get_analytics_data(active_profile['id'])
         
         response_data = {
             'opportunities': opportunities,
@@ -600,9 +602,5 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    # You can customize the stats_provider if needed
-    def simple_stats():
-        return {"some_stat": 1}
-
-    server = APIServer(stats_provider=simple_stats)
+    server = APIServer()
     server.run()
