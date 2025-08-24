@@ -3,10 +3,8 @@ from datetime import datetime
 
 from logger import logger
 
-# Le modèle est maintenant injecté par le script principal (main.py)
-# pour permettre le rechargement à chaud.
+# Le modèle est maintenant injecté par le script principal (main.py)  # pour permettre le rechargement à chaud.
 model = None
-
 
 def calculate_score_fallback(opportunity):
     """
@@ -26,11 +24,12 @@ def calculate_score_fallback(opportunity):
         try:
             time_left = datetime.fromisoformat(expires_at) - datetime.now()
             if time_left.days < 2:
-                score += 20 # Bonus pour les opportunités qui expirent bientôt
+                score += 20  # Bonus pour les opportunités qui expirent bientôt
         except (ValueError, TypeError):
             pass
 
     return max(0, score)
+
 
 def calculate_score(opportunity):
     """
@@ -51,7 +50,7 @@ def calculate_score(opportunity):
         }
 
         expires_at = opportunity.get('expires_at')
-        time_left_days = 30 # Valeur par défaut
+        time_left_days = 30  # Valeur par défaut
         if expires_at:
             try:
                 time_left_days = (datetime.fromisoformat(expires_at) - datetime.now()).total_seconds() / (3600 * 24)

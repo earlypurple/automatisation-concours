@@ -7,7 +7,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 import joblib
 import database as db
-import numpy as np
 from datetime import datetime
 from logger import logger
 
@@ -35,6 +34,7 @@ def prepare_data(df: pd.DataFrame) -> pd.DataFrame:
     df['time_left_days'] = df['time_left_days'].fillna(30)
 
     return df
+
 
 def train_and_save_model():
     """
@@ -81,7 +81,6 @@ def train_and_save_model():
     X = df[numeric_features + categorical_features]
     y = df['target']
 
-
     if len(y.unique()) < 2:
         logger.warning("Pas assez de classes dans la cible pour la stratification. Entraînement annulé.")
         return
@@ -111,6 +110,7 @@ def train_and_save_model():
         main.reload_model()
     except ImportError:
         logger.warning("⚠️  Impossible de recharger le modèle automatiquement. Un redémarrage de l'application est nécessaire.")
+
 
 if __name__ == '__main__':
     db.run_migrations()

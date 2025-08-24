@@ -1,5 +1,4 @@
 import json
-import time
 import random
 from datetime import datetime, timedelta
 import threading
@@ -13,6 +12,7 @@ from logger import logger
 from config_handler import config_handler
 
 load_dotenv()
+
 
 class SurveillanceUltraAvancee:
     def __init__(self):

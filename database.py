@@ -1,6 +1,11 @@
 import sqlite3
 import os
+import datetime
+import json
+import subprocess
+import selection_logic
 from contextlib import contextmanager
+from logger import logger
 
 DB_FILE = 'surveillance.db'
 
@@ -19,9 +24,6 @@ def db_cursor():
     finally:
         conn.close()
 
-import json
-import subprocess
-from logger import logger
 
 def run_migrations():
     """Runs the database migration scripts."""
@@ -32,6 +34,7 @@ def run_migrations():
     migration_script = os.path.join(script_dir, 'migrations', 'migrate.py')
     subprocess.run(['python', migration_script, DB_FILE], check=True)
     logger.info("Migrations completed.")
+
 
 def init_db():
     """
@@ -54,8 +57,6 @@ def init_db():
                 ('Défaut', default_user_data, 1)
             )
             logger.info("Default profile created.")
-
-import datetime
 
 def add_opportunity(opp, profile_id):
     """
@@ -83,12 +84,13 @@ def add_opportunity(opp, profile_id):
             opp.get('auto_fill', False),
             opp['detected_at'],
             opp['expires_at'],
-            'pending', # Initial status
+            'pending',  # Initial status
             opp.get('entries_count'),
             opp.get('time_left'),
             profile_id
         ))
         return True
+
 
 def update_opportunity_status(opportunity_id, status, log_message=None):
     """Updates the status and log of an opportunity."""
@@ -100,7 +102,6 @@ def update_opportunity_status(opportunity_id, status, log_message=None):
         else:
             cur.execute("UPDATE opportunities SET status = ? WHERE id = ?", (status, opportunity_id))
 
-import json
 
 def set_confirmation_pending(opportunity_id, domain):
     """Marks an opportunity as pending email confirmation and stores necessary details."""
@@ -121,7 +122,6 @@ def clear_opportunities(profile_id):
     with db_cursor() as cur:
         cur.execute('DELETE FROM opportunities WHERE profile_id = ?', (profile_id,))
 
-import selection_logic
 
 def update_all_scores(profile_id):
     """Calculates and updates the score for all opportunities of a specific profile."""
@@ -135,12 +135,14 @@ def update_all_scores(profile_id):
 
         logger.info(f"Scores updated for {len(opportunities)} opportunities for profile {profile_id}.")
 
+
 def get_opportunity_by_id(opportunity_id):
     """Fetches a single opportunity by its ID."""
     with db_cursor() as cur:
         cur.execute("SELECT * FROM opportunities WHERE id = ?", (opportunity_id,))
         row = cur.fetchone()
         return dict(row) if row else None
+
 
 def get_opportunities(profile_id):
     """Fetches all opportunities from the database for a specific profile."""
@@ -149,12 +151,14 @@ def get_opportunities(profile_id):
         rows = cur.fetchall()
         return [dict(row) for row in rows]
 
+
 def get_pending_confirmation_opportunities(profile_id):
     """Fetches opportunities pending email confirmation for a specific profile."""
     with db_cursor() as cur:
         cur.execute("SELECT * FROM opportunities WHERE status = 'email_confirmation_pending' AND profile_id = ?", (profile_id,))
         rows = cur.fetchall()
         return [dict(row) for row in rows]
+
 
 def add_participation_history(opportunity_id, status, profile_id):
     """Adds a record to the participation history for a specific profile."""
@@ -163,6 +167,7 @@ def add_participation_history(opportunity_id, status, profile_id):
             INSERT INTO participation_history (opportunity_id, participation_date, status, profile_id)
             VALUES (?, ?, ?, ?)
         ''', (opportunity_id, datetime.datetime.now().isoformat(), status, profile_id))
+
 
 def get_participation_history(profile_id):
     """Fetches the participation history with opportunity details for a specific profile."""
@@ -180,27 +185,31 @@ def get_participation_history(profile_id):
 
 # --- Fonctions de gestion des profils ---
 
+
 def get_profiles():
     """Récupère tous les profils."""
     with db_cursor() as cur:
         cur.execute("SELECT * FROM profiles")
         return [dict(row) for row in cur.fetchall()]
 
+
 def get_active_profile():
     """Récupère le profil actif."""
     with db_cursor() as cur:
         cur.execute("SELECT * FROM profiles WHERE is_active = 1")
         row = cur.fetchone()
-        if not row: # Si aucun n'est actif, retourne le premier
+        if not row:  # Si aucun n'est actif, retourne le premier
             cur.execute("SELECT * FROM profiles ORDER BY id LIMIT 1")
             row = cur.fetchone()
         return dict(row) if row else None
+
 
 def set_active_profile(profile_id):
     """Définit le profil actif."""
     with db_cursor() as cur:
         cur.execute("UPDATE profiles SET is_active = 0")
         cur.execute("UPDATE profiles SET is_active = 1 WHERE id = ?", (profile_id,))
+
 
 def create_profile(name, email=None, user_data=None, settings=None):
     """Crée un nouveau profil."""
@@ -210,6 +219,7 @@ def create_profile(name, email=None, user_data=None, settings=None):
             (name, email, json.dumps(user_data or {}), json.dumps(settings or {}))
         )
         return cur.lastrowid
+
 
 def update_profile(profile_id, name=None, email=None, user_data=None, settings=None):
     """Met à jour un profil existant."""
@@ -222,6 +232,7 @@ def update_profile(profile_id, name=None, email=None, user_data=None, settings=N
             cur.execute("UPDATE profiles SET user_data = ? WHERE id = ?", (json.dumps(user_data), profile_id))
         if settings:
             cur.execute("UPDATE profiles SET settings = ? WHERE id = ?", (json.dumps(settings), profile_id))
+
 
 def delete_profile(profile_id):
     """Supprime un profil et les données associées."""

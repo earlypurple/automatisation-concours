@@ -27,22 +27,22 @@ def servers():
         cur.execute("INSERT INTO opportunities (id, title, description, value, priority, score, url, site, type, auto_fill, detected_at, expires_at, status, profile_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (3, 'Another Great Deal', 'A great deal for you', 200, 2, 250, 'http://example.com/another', 'example.com', 'test', 1, '2025-01-01', '2025-12-31', 'pending', 1))
 
-
     # Start the Python server
     server = APIServer(host='localhost', port=8080)
     server_thread = threading.Thread(target=server.run, daemon=True)
     server_thread.start()
-    time.sleep(1) # Give the server time to start
+    time.sleep(1)  # Give the server time to start
 
     # Start the scraper server
     scraper_process = subprocess.Popen(['node', 'js/scraper_server.js'])
-    time.sleep(1) # Give the scraper server time to start
+    time.sleep(1)  # Give the scraper server time to start
 
     yield
 
     # Stop the servers
     server.shutdown()
     scraper_process.terminate()
+
 
 def test_homepage(servers):
     with sync_playwright() as p:

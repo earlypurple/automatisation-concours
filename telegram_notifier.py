@@ -33,6 +33,7 @@ def send_telegram_message(message):
     except requests.exceptions.RequestException as e:
         logger.error(f"Error sending message to Telegram: {e}")
 
+
 if __name__ == '__main__':
     # Example usage for testing
     # Make sure to configure your bot_token and chat_id in config.json

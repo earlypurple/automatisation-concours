@@ -8,8 +8,8 @@ from datetime import datetime, timedelta
 # Add the root directory to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import selection_logic
-# We don't import train_model here as we are not testing it in this file yet.
+import selection_logic  # We don't import train_model here as we are not testing it in this file yet.
+
 
 class TestSelectionLogic(unittest.TestCase):
 
@@ -41,16 +41,15 @@ class TestSelectionLogic(unittest.TestCase):
         score = selection_logic.calculate_score(opportunity)
 
         # 5. Assertions
-        self.assertEqual(score, 80.0) # 0.8 * 100
+        self.assertEqual(score, 80.0)  # 0.8 * 100
         # Check that predict_proba was called once
         mock_model.predict_proba.assert_called_once()
         # Check the structure of the DataFrame passed to the model
         call_args = mock_model.predict_proba.call_args
-        input_df = call_args[0][0] # First argument of the call
+        input_df = call_args[0][0]  # First argument of the call
         self.assertIsInstance(input_df, pd.DataFrame)
         self.assertIn('time_left_days', input_df.columns)
         self.assertAlmostEqual(input_df['time_left_days'][0], 5, delta=0.1)
-
 
     def test_calculate_score_fallback_logic(self):
         """
@@ -61,10 +60,10 @@ class TestSelectionLogic(unittest.TestCase):
 
         # Create a sample opportunity that triggers the fallback logic
         opportunity = {
-            'value': 50, # score += 50 * 1.5 = 75
-            'priority': 8, # score += 8 * 10 = 80 -> 155
-            'entries_count': 1000, # score -= 1000 / 100 = 10 -> 145
-            'expires_at': (datetime.now() + timedelta(days=1)).isoformat() # score += 20 -> 165
+            'value': 50,  # score += 50 * 1.5 = 75
+            'priority': 8,  # score += 8 * 10 = 80 -> 155
+            'entries_count': 1000,  # score -= 1000 / 100 = 10 -> 145
+            'expires_at': (datetime.now() + timedelta(days=1)).isoformat()  # score += 20 -> 165
         }
 
         expected_score = (50 * 1.5) + (8 * 10) - (1000 / 100) + 20
@@ -76,15 +75,15 @@ class TestSelectionLogic(unittest.TestCase):
         Test that the fallback logic handles missing keys gracefully.
         """
         opportunity = {
-            'value': 50, # score = 75
+            'value': 50,  # score = 75
             # priority is missing
         }
         # Expected score: 50 * 1.5 = 75
         self.assertEqual(selection_logic.calculate_score(opportunity), 75)
 
         opportunity_2 = {
-            'priority': 8, # score = 80
-            'entries_count': 1000 # score -= 10
+            'priority': 8,  # score = 80
+            'entries_count': 1000  # score -= 10
         }
         # Expected score: 8 * 10 - (1000 / 100) = 70
         self.assertEqual(selection_logic.calculate_score(opportunity_2), 70)
@@ -94,7 +93,7 @@ class TestSelectionLogic(unittest.TestCase):
         Test that the fallback logic handles invalid date formats.
         """
         opportunity = {
-            'value': 10, # score = 15
+            'value': 10,  # score = 15
             'expires_at': 'not-a-date'
         }
         # Should not add the expiry bonus and not crash
@@ -105,7 +104,7 @@ class TestSelectionLogic(unittest.TestCase):
         Test that the score cannot be negative.
         """
         opportunity = {
-            'entries_count': 50000 # score = -500
+            'entries_count': 50000  # score = -500
         }
         # max(0, score) should return 0
         self.assertEqual(selection_logic.calculate_score(opportunity), 0)
@@ -122,7 +121,7 @@ class TestSelectionLogic(unittest.TestCase):
         selection_logic.model = mock_model
 
         # 3. Create a sample opportunity
-        opportunity = {'value': 50, 'priority': 8} # Data for fallback
+        opportunity = {'value': 50, 'priority': 8}  # Data for fallback
         expected_fallback_score = (50 * 1.5) + (8 * 10)
 
         # 4. Call the function
@@ -167,8 +166,8 @@ class TestTrainModelLogic(unittest.TestCase):
 
         # time_left_days calculation
         self.assertAlmostEqual(prepared_df['time_left_days'][0], 1, delta=0.1)
-        self.assertEqual(prepared_df['time_left_days'][1], 30) # None date
-        self.assertEqual(prepared_df['time_left_days'][2], 30) # Invalid date
+        self.assertEqual(prepared_df['time_left_days'][1], 30)  # None date
+        self.assertEqual(prepared_df['time_left_days'][2], 30)  # Invalid date
 
 
 if __name__ == '__main__':
