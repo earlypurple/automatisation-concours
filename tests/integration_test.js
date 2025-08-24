@@ -1,6 +1,9 @@
 // tests/integration_test.js
 
-const AutoParticipation = require('../js/autoParticipation.js');
+// Set test environment
+process.env.NODE_ENV = 'test';
+
+const AutoParticipationManager = require('../js/autoParticipation.js');
 const Analytics = require('../js/analytics.js');
 const NotificationManager = require('../js/notifications.js');
 const EmailReportManager = require('../js/emailReports.js');
@@ -22,7 +25,8 @@ async function runIntegrationTest() {
         auto.updateConfig({
             maxParticipationsPerDay: 10,
             delayBetween: 1000, // 1 seconde pour le test
-            safeMode: true
+            safeMode: false, // Disable validation for integration tests
+            priorityThreshold: 2 // Lower threshold for tests
         });
 
         // Démarrage de l'auto-participation

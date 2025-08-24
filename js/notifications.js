@@ -8,7 +8,7 @@ class NotificationManager {
         this.websocket = null;
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
-        this.isOnline = navigator.onLine || true;
+        this.isOnline = (typeof navigator !== 'undefined' && navigator.onLine) || true;
         
         // Configuration moderne
         this.config = {
@@ -40,8 +40,10 @@ class NotificationManager {
     }
 
     async requestPermission() {
-        if ('Notification' in window) {
+        if (typeof window !== 'undefined' && 'Notification' in window) {
             this.permission = await Notification.requestPermission();
+        } else {
+            this.permission = 'granted'; // Default for Node.js
         }
     }
 
@@ -52,17 +54,19 @@ class NotificationManager {
         // Service Worker pour PWA et notifications
         this.setupServiceWorker();
         
-        // Écouter les changements de connectivité
-        window.addEventListener('online', () => {
-            this.isOnline = true;
-            if (this.config.autoReconnect) {
-                this.setupWebSocket();
-            }
-        });
-        
-        window.addEventListener('offline', () => {
-            this.isOnline = false;
-        });
+        // Écouter les changements de connectivité (browser only)
+        if (typeof window !== 'undefined') {
+            window.addEventListener('online', () => {
+                this.isOnline = true;
+                if (this.config.autoReconnect) {
+                    this.setupWebSocket();
+                }
+            });
+            
+            window.addEventListener('offline', () => {
+                this.isOnline = false;
+            });
+        }
     }
 
     setupWebSocket() {
@@ -74,7 +78,10 @@ class NotificationManager {
                 this.websocket.close();
             }
             
-            const wsUrl = `ws://${window.location.hostname}:8080/notifications`;
+            const hostname = (typeof window !== 'undefined' && window.location) 
+                ? window.location.hostname 
+                : 'localhost';
+            const wsUrl = `ws://${hostname}:8080/notifications`;
             this.websocket = new WebSocket(wsUrl);
             
             this.websocket.onopen = () => {
@@ -190,7 +197,7 @@ class NotificationManager {
 
             // Gestion des clics sur la notification
             systemNotification.onclick = () => {
-                if (options.url) {
+                if (options.url && typeof window !== 'undefined') {
                     window.open(options.url, '_blank');
                 }
                 this.markAsRead(notification.id);
@@ -221,6 +228,12 @@ class NotificationManager {
 
     playNotificationSound(type = 'info') {
         try {
+            // Check if Audio is available (browser environment)
+            if (typeof Audio === 'undefined') {
+                console.log(`🔊 Audio notification: ${type} (Node.js environment)`);
+                return;
+            }
+            
             const audio = new Audio();
             switch (type) {
                 case 'success':

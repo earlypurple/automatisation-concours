@@ -59,12 +59,12 @@ global.window = {
 };
 
 // Charger les modules
-require('./js/smartCache.js');
-require('./js/realTimeMonitor.js');
-require('./js/aiOptimizer.js');
-require('./js/gamification.js');
-require('./js/abTesting.js');
-require('./js/modernOptimizationSuite.js');
+const SmartCache = require('./js/smartCache.js');
+const RealTimeMonitor = require('./js/realTimeMonitor.js');
+const AIOptimizer = require('./js/aiOptimizer.js');
+const GamificationEngine = require('./js/gamification.js');
+const ABTestingEngine = require('./js/abTesting.js');
+const ModernOptimizationSuite = require('./js/modernOptimizationSuite.js');
 
 console.log('🧪 Démarrage des tests de la suite d\'optimisation moderne\n');
 
