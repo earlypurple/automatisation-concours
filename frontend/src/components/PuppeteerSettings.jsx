@@ -1,25 +1,25 @@
 import React from 'react';
 
-function ProxiesSettings({ config, handleInputChange }) {
+function PuppeteerSettings({ config, handleInputChange }) {
   return (
     <div>
-      <h3>Proxies</h3>
+      <h3>Puppeteer</h3>
       <label>
-        Enabled:
+        Headless:
         <input
           type="checkbox"
-          name="proxies.enabled"
-          checked={config.proxies.enabled}
+          name="puppeteer.headless"
+          checked={config.puppeteer.headless}
           onChange={handleInputChange}
         />
       </label>
       <br />
       <label>
-        Rotation Mode:
+        Log Level:
         <input
           type="text"
-          name="proxies.rotation_mode"
-          value={config.proxies.rotation_mode}
+          name="puppeteer.log_level"
+          value={config.puppeteer.log_level}
           onChange={handleInputChange}
         />
       </label>
@@ -28,4 +28,4 @@ function ProxiesSettings({ config, handleInputChange }) {
   );
 }
 
-export default ProxiesSettings;
+export default PuppeteerSettings;
