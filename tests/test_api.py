@@ -12,7 +12,7 @@ import json
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from logger import logger
-import server
+from app import app, api_server
 import database as db
 import analytics
 from intelligent_cache import api_cache, analytics_cache
@@ -29,9 +29,8 @@ class TestApi(unittest.TestCase):
         db.run_migrations()
         db.init_db()
 
-        # We still need the APIServer instance because the Handler class depends on it
-        # for things like the participation queue. But we will not run it.
-        cls.api_server = server.APIServer(host='localhost', port=8081)
+        app.config['TESTING'] = True
+        cls.client = app.test_client()
 
     @classmethod
     def tearDownClass(cls):
@@ -46,9 +45,6 @@ class TestApi(unittest.TestCase):
             cur.execute("UPDATE profiles SET is_active = 1 WHERE id = 1")
 
     def tearDown(self):
-        # This method is called after each test.
-        # We clean up the tables and caches that are modified by multiple tests
-        # to ensure a clean state for the next test.
         with db.db_cursor() as cur:
             cur.execute("DELETE FROM opportunities")
             cur.execute("DELETE FROM participation_history")
@@ -58,55 +54,14 @@ class TestApi(unittest.TestCase):
 
     # --- Helper Methods ---
     def _simulate_request(self, method, endpoint, body=None):
-        """
-        Simulates an HTTP request to the API handler without a live server.
-        This version patches the parent __init__ to prevent any socket/request handling.
-        """
-        # Patch the parent's __init__ so it does nothing. This prevents the handler
-        # from trying to read from a socket during instantiation.
-        with patch('http.server.SimpleHTTPRequestHandler.__init__', lambda *args, **kwargs: None):
-            handler = server.Handler(None, None, None, api_server=self.api_server)
-
-        # Now, manually set up the handler with the necessary attributes for the test.
-        request_body_bytes = json.dumps(body).encode('utf-8') if body is not None else b''
-        handler.rfile = io.BytesIO(request_body_bytes)
-        handler.wfile = io.BytesIO()
-        handler.path = f"/api{endpoint}"
-        handler.command = method
-        handler.headers = {
-            'Host': 'localhost:8081',
-            'Content-Type': 'application/json',
-            'Content-Length': str(len(request_body_bytes))
-        }
-
-        # Mock the response methods that would normally write to a socket.
-        handler.send_response = MagicMock()
-        handler.send_header = MagicMock()
-        handler.end_headers = MagicMock()
-
-        # Call the appropriate do_METHOD (e.g., do_GET, do_POST)
-        do_method = getattr(handler, f'do_{method}')
-        do_method()
-
-        # Create a mock response object to return, mimicking `requests.Response`.
-        mock_response = MagicMock()
-
-        if handler.send_response.called:
-            mock_response.status_code = handler.send_response.call_args[0][0]
-        else:
-            mock_response.status_code = 500  # Default to error if response wasn't sent
-
-        response_body = handler.wfile.getvalue().decode('utf-8')
-
-        def json_func():
-            # Mimic requests.json() which fails on empty body
-            if not response_body:
-                raise json.JSONDecodeError("Expecting value", response_body, 0)
-            return json.loads(response_body)
-
-        mock_response.json = json_func
-
-        return mock_response
+        if method == 'GET':
+            return self.client.get(f'/api{endpoint}')
+        elif method == 'POST':
+            return self.client.post(f'/api{endpoint}', json=body)
+        elif method == 'PUT':
+            return self.client.put(f'/api{endpoint}', json=body)
+        elif method == 'DELETE':
+            return self.client.delete(f'/api{endpoint}', json=body)
 
     def _api_get(self, endpoint):
         return self._simulate_request('GET', endpoint)
@@ -128,14 +83,14 @@ class TestApi(unittest.TestCase):
         }
         response = self._api_post("/profiles", data)
         self.assertEqual(response.status_code, 201)
-        return response.json()
+        return response.json
 
     # --- Tests ---
     def test_01_profiles_api_lifecycle(self):
         # 1. GET initial profiles
         response = self._api_get("/profiles")
         self.assertEqual(response.status_code, 200)
-        profiles = response.json()
+        profiles = response.json
         self.assertEqual(len(profiles), 1)
         self.assertEqual(profiles[0]['name'], 'Défaut')
 
@@ -146,7 +101,7 @@ class TestApi(unittest.TestCase):
         # 3. GET profiles again
         response = self._api_get("/profiles")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 2)
+        self.assertEqual(len(response.json), 2)
 
         # 4. ACTIVATE the new profile
         response = self._api_post(f"/profiles/{profile_id}/activate")
@@ -155,7 +110,7 @@ class TestApi(unittest.TestCase):
         # 5. GET active profile
         response = self._api_get("/profiles/active")
         self.assertEqual(response.status_code, 200)
-        active_profile = response.json()
+        active_profile = response.json
         self.assertEqual(active_profile['id'], profile_id)
         self.assertEqual(active_profile['name'], "Test Profile")
 
@@ -166,7 +121,7 @@ class TestApi(unittest.TestCase):
 
         # Verify update
         response = self._api_get("/profiles/active")
-        self.assertEqual(response.json()['name'], "Updated Profile Name")
+        self.assertEqual(response.json['name'], "Updated Profile Name")
 
         # 7. DELETE the profile
         response = self._api_delete(f"/profiles/{profile_id}")
@@ -175,11 +130,11 @@ class TestApi(unittest.TestCase):
         # 8. GET profiles again
         response = self._api_get("/profiles")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 1)
+        self.assertEqual(len(response.json), 1)
 
     def test_02_data_is_profile_specific(self):
         # Get the default profile ID
-        default_profile_id = self._api_get("/profiles/active").json()['id']
+        default_profile_id = self._api_get("/profiles/active").json['id']
 
         # Create a second profile
         profile2 = self._create_profile("Profile 2")
@@ -196,8 +151,8 @@ class TestApi(unittest.TestCase):
         # API should return one opportunity for the active (default) profile
         response = self._api_get("/data")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()['opportunities']), 1)
-        self.assertEqual(response.json()['opportunities'][0]['title'], 'Opp 1')
+        self.assertEqual(len(response.json['opportunities']), 1)
+        self.assertEqual(response.json['opportunities'][0]['title'], 'Opp 1')
 
         # Activate profile 2
         self._api_post(f"/profiles/{profile2_id}/activate")
@@ -205,7 +160,7 @@ class TestApi(unittest.TestCase):
         # API should now return zero opportunities for the new active profile
         response = self._api_get("/data")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()['opportunities']), 0)
+        self.assertEqual(len(response.json['opportunities']), 0)
 
     def test_03_get_data_with_analytics(self):
         # 1. Create and activate a new profile for this test
@@ -237,7 +192,7 @@ class TestApi(unittest.TestCase):
         # Call the API
         response = self._api_get("/data")
         self.assertEqual(response.status_code, 200)
-        data = response.json()
+        data = response.json
         stats = data.get('stats', {})
 
         # Assertions for stats

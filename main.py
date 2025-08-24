@@ -8,7 +8,8 @@ import schedule
 import os
 import joblib
 import redis
-from server import APIServer
+from app import app, api_server
+from waitress import serve
 import selection_logic
 import train_model
 from logger import logger
@@ -128,16 +129,6 @@ if __name__ == "__main__":
     training_scheduler_thread.start()
 
     # 4. Démarrer le serveur d'API
-    def analytics_provider():
-        active_profile = db.get_active_profile()
-        profile_id = active_profile['id'] if active_profile else None
-        new_stats = analytics.get_analytics_data(profile_id)
-        # surv.stats n'existe plus, on se base sur les nouvelles stats
-        return new_stats
-
-    server = APIServer(
-        host=app_config.get('server', {}).get('host', '0.0.0.0'),
-        port=app_config.get('server', {}).get('port', 8080),
-        stats_provider=analytics_provider
-    )
-    server.run()
+    logger.info("🚀 Démarrage du serveur d'API Flask...")
+    api_server.start_worker()
+    serve(app, host='0.0.0.0', port=8080)

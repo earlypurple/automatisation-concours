@@ -1,0 +1,13 @@
+{
+  "name": "scraper",
+  "version": "1.0.0",
+  "description": "Scraper for the application",
+  "main": "scraper_server.js",
+  "scripts": {
+    "start": "node scraper_server.js"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "puppeteer": "^22.14.0"
+  }
+}

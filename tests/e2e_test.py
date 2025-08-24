@@ -5,7 +5,8 @@ import time
 import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from server import APIServer
+from app import app, api_server
+from waitress import serve
 import subprocess
 
 import database
@@ -28,19 +29,18 @@ def servers():
                     (3, 'Another Great Deal', 'A great deal for you', 200, 2, 250, 'http://example.com/another', 'example.com', 'test', 1, '2025-01-01', '2025-12-31', 'pending', 1))
 
     # Start the Python server
-    server = APIServer(host='localhost', port=8080)
-    server_thread = threading.Thread(target=server.run, daemon=True)
+    server_thread = threading.Thread(target=lambda: serve(app, host='0.0.0.0', port=8080), daemon=True)
     server_thread.start()
-    time.sleep(1)  # Give the server time to start
+    time.sleep(1)
 
     # Start the scraper server
     scraper_process = subprocess.Popen(['node', 'js/scraper_server.js'])
-    time.sleep(1)  # Give the scraper server time to start
+    time.sleep(1)
 
     yield
 
     # Stop the servers
-    server.shutdown()
+    api_server.shutdown()
     scraper_process.terminate()
 
 
