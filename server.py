@@ -179,6 +179,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.api_server = api_server
         # Initialize sites_config for compatibility with existing code
         self.sites_config = config_handler.get_config().get('sites', {})
+        self.API_KEY = os.getenv('API_KEY')
         self.routes = {
             'GET': {
                 r'/api/data$': self.handle_get_data,
@@ -190,7 +191,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             },
             'POST': {
                 r'/api/profiles$': self.handle_create_profile,
-                r'/api/proxies$': self.handle_add_proxy,
                 r'/api/participate$': self.handle_participation,
                 r'/api/profiles/\d+/activate$': self.handle_activate_profile,
                 r'/api/config$': self.handle_save_config,
@@ -200,7 +200,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             },
             'DELETE': {
                 r'/api/profiles/\d+$': self.handle_delete_profile,
-                r'/api/proxies$': self.handle_delete_proxy,
             }
         }
         super().__init__(*args, directory='static', **kwargs)
@@ -213,6 +212,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(encoded_data)
 
+    def _is_authenticated(self):
+        if not self.API_KEY:
+            # If no API key is set in the environment, auth is disabled for local dev.
+            return True
+
+        api_key_header = self.headers.get('X-API-Key')
+        if api_key_header and api_key_header == self.API_KEY:
+            return True
+
+        return False
+
     def get_json_body(self):
         content_length = int(self.headers['Content-Length'])
         post_data = self.rfile.read(content_length)
@@ -220,6 +230,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if self.path.startswith('/api/'):
+            if not self._is_authenticated():
+                return self.send_json_response(401, {'error': 'Unauthorized: API Key is missing or invalid.'})
             for pattern, handler in self.routes.get('GET', {}).items():
                 if re.match(pattern, self.path):
                     return handler()
@@ -248,6 +260,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         if self.path.startswith('/api/'):
+            if not self._is_authenticated():
+                return self.send_json_response(401, {'error': 'Unauthorized: API Key is missing or invalid.'})
             for pattern, handler in self.routes.get('POST', {}).items():
                 if re.match(pattern, self.path):
                     return handler()
@@ -256,6 +270,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_PUT(self):
         if self.path.startswith('/api/'):
+            if not self._is_authenticated():
+                return self.send_json_response(401, {'error': 'Unauthorized: API Key is missing or invalid.'})
             for pattern, handler in self.routes.get('PUT', {}).items():
                 if re.match(pattern, self.path):
                     return handler()
@@ -264,6 +280,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_DELETE(self):
         if self.path.startswith('/api/'):
+            if not self._is_authenticated():
+                return self.send_json_response(401, {'error': 'Unauthorized: API Key is missing or invalid.'})
             for pattern, handler in self.routes.get('DELETE', {}).items():
                 if re.match(pattern, self.path):
                     return handler()
@@ -291,8 +309,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if cached_data:
             cached_data['cached'] = True
             return self.send_json_response(200, cached_data)
-        if not active_profile:
-            return self.send_json_response(404, {'error': 'No active profile found'})
         
         opportunities = db.get_opportunities(active_profile['id'])
         stats = analytics.get_analytics_data(active_profile['id'])
@@ -341,16 +357,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         db.set_active_profile(profile_id)
         self.send_json_response(200, {'message': f'Profile {profile_id} activated'})
 
-    def handle_add_proxy(self):
-        body = self.get_json_body()
-        proxy_url = body.get('proxy_url')
-        if not proxy_url:
-            return self.send_json_response(400, {'error': 'proxy_url is required'})
-        if config_handler.add_proxy(proxy_url):
-            self.send_json_response(201, {'message': 'Proxy added successfully'})
-        else:
-            self.send_json_response(409, {'error': 'Proxy already exists'})
-
     def handle_update_profile(self):
         profile_id = int(self.path.split('/')[-1])
         body = self.get_json_body()
@@ -364,16 +370,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_json_response(200, {'message': f'Profile {profile_id} deleted'})
         except ValueError as e:
             self.send_json_response(400, {'error': str(e)})
-
-    def handle_delete_proxy(self):
-        body = self.get_json_body()
-        proxy_url = body.get('proxy_url')
-        if not proxy_url:
-            return self.send_json_response(400, {'error': 'proxy_url is required'})
-        if config_handler.delete_proxy(proxy_url):
-            self.send_json_response(200, {'message': 'Proxy deleted successfully'})
-        else:
-            self.send_json_response(404, {'error': 'Proxy not found'})
 
     def handle_health_check(self):
         """Traite les demandes de bilan de santé avec métriques avancées."""
