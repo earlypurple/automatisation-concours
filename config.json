@@ -16,9 +16,7 @@
         "browser": true,
         "min_priority": 4,
         "telegram": {
-            "enabled": false,
-            "bot_token": "",
-            "chat_id": ""
+            "enabled": false
         }
     },
     "filters": {
@@ -42,8 +40,7 @@
     },
     "proxies": {
         "enabled": false,
-        "rotation_mode": "random",
-        "list": []
+        "rotation_mode": "random"
     },
     "captcha_solver": {
         "enabled": false,

@@ -55,5 +55,3 @@ class ParticipationHistory(Base):
 
     opportunity = relationship("Opportunity", back_populates="participation_history")
     profile = relationship("Profile", back_populates="participation_history")
-
-engine = create_engine('sqlite:///surveillance.db')

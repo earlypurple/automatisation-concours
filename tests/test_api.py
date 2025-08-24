@@ -23,14 +23,22 @@ class TestApi(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        # Set a dummy API_KEY for testing
+        os.environ['API_KEY'] = 'test-api-key'
+
         cls.db_file = 'test_surveillance.db'
-        db.DB_FILE = cls.db_file
         if os.path.exists(cls.db_file):
             os.remove(cls.db_file)
 
+        # Initialize the database engine for the test database
+        db.init_engine(cls.db_file)
+
+        # Run migrations on the test database
         alembic_cfg = Config("alembic.ini")
         alembic_cfg.set_main_option("sqlalchemy.url", f"sqlite:///{cls.db_file}")
         command.upgrade(alembic_cfg, "head")
+
+        # Initialize with default data if needed
         db.init_db()
 
         # We still need the APIServer instance because the Handler class depends on it
@@ -43,25 +51,26 @@ class TestApi(unittest.TestCase):
             os.remove(cls.db_file)
 
     def setUp(self):
-        with db.db_cursor() as cur:
-            cur.execute("DELETE FROM opportunities")
-            cur.execute("DELETE FROM participation_history")
-            cur.execute("DELETE FROM profiles WHERE id > 1")
-            cur.execute("UPDATE profiles SET is_active = 1 WHERE id = 1")
+        with db.db_session() as session:
+            session.query(db.Opportunity).delete()
+            session.query(db.ParticipationHistory).delete()
+            session.query(db.Profile).filter(db.Profile.id > 1).delete()
+            session.query(db.Profile).filter(db.Profile.id == 1).update({'is_active': True})
+            session.commit()
 
     def tearDown(self):
         # This method is called after each test.
         # We clean up the tables and caches that are modified by multiple tests
         # to ensure a clean state for the next test.
-        with db.db_cursor() as cur:
-            cur.execute("DELETE FROM opportunities")
-            cur.execute("DELETE FROM participation_history")
+        with db.db_session() as session:
+            session.query(db.Opportunity).delete()
+            session.query(db.ParticipationHistory).delete()
 
         api_cache.clear()
         analytics_cache.clear()
 
     # --- Helper Methods ---
-    def _simulate_request(self, method, endpoint, body=None):
+    def _simulate_request(self, method, endpoint, body=None, headers=None):
         """
         Simulates an HTTP request to the API handler without a live server.
         This version patches the parent __init__ to prevent any socket/request handling.
@@ -77,11 +86,17 @@ class TestApi(unittest.TestCase):
         handler.wfile = io.BytesIO()
         handler.path = f"/api{endpoint}"
         handler.command = method
-        handler.headers = {
+
+        # Default headers, can be overridden
+        default_headers = {
             'Host': 'localhost:8081',
             'Content-Type': 'application/json',
-            'Content-Length': str(len(request_body_bytes))
+            'Content-Length': str(len(request_body_bytes)),
+            'X-API-Key': os.getenv('API_KEY')
         }
+        if headers:
+            default_headers.update(headers)
+        handler.headers = default_headers
 
         # Mock the response methods that would normally write to a socket.
         handler.send_response = MagicMock()
@@ -193,9 +208,10 @@ class TestApi(unittest.TestCase):
         self._api_post(f"/profiles/{default_profile_id}/activate")
 
         # Add an opportunity for the default profile
-        with db.db_cursor() as cur:
-            cur.execute("INSERT INTO opportunities (title, site, url, detected_at, profile_id) VALUES (?, ?, ?, ?, ?)",
-                        ('Opp 1', 'site1', 'url1', '2023-01-01', default_profile_id))
+        with db.db_session() as session:
+            new_opp = db.Opportunity(title='Opp 1', site='site1', url='url1', detected_at='2023-01-01', profile_id=default_profile_id)
+            session.add(new_opp)
+            session.commit()
 
         # API should return one opportunity for the active (default) profile
         response = self._api_get("/data")
@@ -218,25 +234,21 @@ class TestApi(unittest.TestCase):
         self._api_post(f"/profiles/{profile_id}/activate")
 
         # 2. Add dummy data for THIS profile
-        with db.db_cursor() as cur:
-            # Opportunities in different months
-            cur.execute("INSERT INTO opportunities (id, title, site, url, detected_at, profile_id) VALUES (?, ?, ?, ?, ?, ?)",
-                        (101, 'Opp Jan', 's1', 'u1', '2023-01-10T10:00:00', profile_id))
-            cur.execute("INSERT INTO opportunities (id, title, site, url, detected_at, profile_id) VALUES (?, ?, ?, ?, ?, ?)",
-                        (102, 'Opp Jan 2', 's1', 'u2', '2023-01-20T10:00:00', profile_id))
-            cur.execute("INSERT INTO opportunities (id, title, site, url, detected_at, profile_id) VALUES (?, ?, ?, ?, ?, ?)",
-                        (103, 'Opp Feb', 's1', 'u3', '2023-02-05T10:00:00', profile_id))
+        with db.db_session() as session:
+            # Opportunities
+            opp1 = db.Opportunity(id=101, title='Opp Jan', site='s1', url='u1', detected_at='2023-01-10T10:00:00', profile_id=profile_id)
+            opp2 = db.Opportunity(id=102, title='Opp Jan 2', site='s1', url='u2', detected_at='2023-01-20T10:00:00', profile_id=profile_id)
+            opp3 = db.Opportunity(id=103, title='Opp Feb', site='s1', url='u3', detected_at='2023-02-05T10:00:00', profile_id=profile_id)
+            session.add_all([opp1, opp2, opp3])
+            session.commit()
 
-            # Participation history for success rate calculation
-            # 3 successes, 1 failure -> 75% success rate
-            cur.execute("INSERT INTO participation_history (opportunity_id, participation_date, status, profile_id) VALUES (?, ?, ?, ?)",
-                        (101, '2023-01-11T10:00:00', 'success', profile_id))
-            cur.execute("INSERT INTO participation_history (opportunity_id, participation_date, status, profile_id) VALUES (?, ?, ?, ?)",
-                        (102, '2023-01-21T10:00:00', 'participated', profile_id))
-            cur.execute("INSERT INTO participation_history (opportunity_id, participation_date, status, profile_id) VALUES (?, ?, ?, ?)",
-                        (103, '2023-02-06T10:00:00', 'success', profile_id))
-            cur.execute("INSERT INTO participation_history (opportunity_id, participation_date, status, profile_id) VALUES (?, ?, ?, ?)",
-                        (103, '2023-02-07T10:00:00', 'failed', profile_id))
+            # Participation history
+            hist1 = db.ParticipationHistory(opportunity_id=101, participation_date='2023-01-11T10:00:00', status='success', profile_id=profile_id)
+            hist2 = db.ParticipationHistory(opportunity_id=102, participation_date='2023-01-21T10:00:00', status='participated', profile_id=profile_id)
+            hist3 = db.ParticipationHistory(opportunity_id=103, participation_date='2023-02-06T10:00:00', status='success', profile_id=profile_id)
+            hist4 = db.ParticipationHistory(opportunity_id=103, participation_date='2023-02-07T10:00:00', status='failed', profile_id=profile_id)
+            session.add_all([hist1, hist2, hist3, hist4])
+            session.commit()
 
         # Call the API
         response = self._api_get("/data")
@@ -263,6 +275,14 @@ class TestApi(unittest.TestCase):
         self.assertEqual(jan_data['opportunités'], 2)
         self.assertEqual(feb_data['opportunités'], 1)
 
+    def test_04_unauthorized_access(self):
+        # Case 1: No API Key provided
+        response_no_key = self._simulate_request('GET', '/profiles', headers={'X-API-Key': ''})
+        self.assertEqual(response_no_key.status_code, 401)
+
+        # Case 2: Incorrect API Key provided
+        response_wrong_key = self._simulate_request('GET', '/profiles', headers={'X-API-Key': 'wrong-key'})
+        self.assertEqual(response_wrong_key.status_code, 401)
 
 
 if __name__ == '__main__':
