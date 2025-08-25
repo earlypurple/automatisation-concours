@@ -175,6 +175,7 @@ class APIServer:
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, stats_provider=None, api_server=None, **kwargs):
+        logger.info("Handler initialized")
         self.stats_provider = stats_provider
         self.api_server = api_server
         # Initialize sites_config for compatibility with existing code
@@ -230,11 +231,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         if self.path.startswith('/api/'):
+            logger.info(f"API GET request for path: {self.path}")
             if not self._is_authenticated():
                 return self.send_json_response(401, {'error': 'Unauthorized: API Key is missing or invalid.'})
             for pattern, handler in self.routes.get('GET', {}).items():
+                logger.info(f"Checking pattern: {pattern}")
                 if re.match(pattern, self.path):
+                    logger.info(f"Matched pattern: {pattern}, executing handler.")
                     return handler()
+            logger.warning(f"No pattern matched for path: {self.path}")
             return self.send_json_response(404, {'error': 'Not Found'})
 
         # Serve static files or the main index.html for the React app

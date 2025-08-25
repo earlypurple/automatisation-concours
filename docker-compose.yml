@@ -1,9 +1,9 @@
 services:
-  app:
+  backend:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: surveillance_app
+      dockerfile: backend.Dockerfile
+    container_name: surveillance_backend
     ports:
       - "8080:8080"
     volumes:
@@ -18,20 +18,31 @@ services:
     depends_on:
       - redis
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: surveillance_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
   scraper:
     build:
       context: .
-      dockerfile: scraper.Dockerfile
-    container_name: scraper_service
-    volumes:
-      - .:/app
-    environment:
-      - REDIS_HOST=redis
+      dockerfile: backend.Dockerfile
+    container_name: surveillance_scraper
+    command: node js/scraper_server.js
+    ports:
+      - "3001:3000" # Expose scraper on 3001 to avoid conflict with frontend dev server
     depends_on:
-      - redis
+      - backend
 
   redis:
-    image: "redis:alpine"
+    build:
+      context: .
+      dockerfile: redis.Dockerfile
     container_name: redis_queue
     ports:
       - "6379:6379"
