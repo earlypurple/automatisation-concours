@@ -55,8 +55,7 @@ WORKDIR /app
 COPY requirements.txt package.json package-lock.json ./
 
 # Installer les dépendances Python
-# On installe aussi redis pour la communication
-RUN pip install --no-cache-dir -r requirements.txt redis
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Installer les dépendances Node.js
 # Utiliser --unsafe-perm pour éviter des problèmes de permissions avec Puppeteer
@@ -65,5 +64,8 @@ RUN npm install --unsafe-perm
 # Copier le reste de l'application
 COPY . .
 
-# Commande pour lancer le scraper
-CMD ["python", "run_scraper.py"]
+# Exposer le port de l'application
+EXPOSE 8080
+
+# Commande pour lancer l'application avec Gunicorn
+CMD ["python", "run.py"]

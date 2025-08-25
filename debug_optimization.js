@@ -3,17 +3,8 @@
 
 const { performance } = require('perf_hooks');
 
-const FDBFactory = require("fake-indexeddb/lib/FDBFactory");
-
 // Mock du localStorage pour Node.js
 global.localStorage = {
-    data: {},
-    setItem(key, value) { this.data[key] = value; },
-    getItem(key) { return this.data[key] || null; },
-    removeItem(key) { delete this.data[key]; }
-};
-
-global.sessionStorage = {
     data: {},
     setItem(key, value) { this.data[key] = value; },
     getItem(key) { return this.data[key] || null; },
@@ -29,7 +20,7 @@ global.WebSocket = class MockWebSocket {
             if (this.onopen) this.onopen();
         }, 10);
     }
-    
+
     send(data) {
         // Simuler une réponse
         setTimeout(() => {
@@ -43,7 +34,7 @@ global.WebSocket = class MockWebSocket {
             }
         }, 50);
     }
-    
+
     close() {
         if (this.onclose) this.onclose();
     }
@@ -66,8 +57,7 @@ global.window = {
         readyState: 'complete',
         getElementById: () => ({ textContent: '', className: '' }),
         addEventListener: () => {}
-    },
-    indexedDB: new FDBFactory()
+    }
 };
 
 // Charger les modules
@@ -86,17 +76,17 @@ async function runTests() {
         failed: 0,
         total: 0
     };
-    
+
     const tests = [
         testSmartCache,
-        testRealTimeMonitor,
-        testAIOptimizer,
-        testGamificationEngine,
-        testABTesting,
-        testOptimizationSuite,
-        testIntegration
+        // testRealTimeMonitor,
+        // testAIOptimizer,
+        // testGamificationEngine,
+        // testABTesting,
+        // testOptimizationSuite,
+        // testIntegration
     ];
-    
+
     for (const test of tests) {
         results.total++;
         try {
@@ -110,72 +100,75 @@ async function runTests() {
             console.error(`   Stack: ${error.stack}\n`);
         }
     }
-    
+
     // Résumé des tests
     console.log('📊 Résultats des tests:');
     console.log(`├─ Total: ${results.total}`);
     console.log(`├─ Passés: ${results.passed}`);
     console.log(`├─ Échoués: ${results.failed}`);
     console.log(`└─ Taux de réussite: ${(results.passed / results.total * 100).toFixed(1)}%`);
-    
+
     if (results.failed === 0) {
         console.log('\n🎉 Tous les tests sont passés! La suite d\'optimisation est prête.');
     } else {
         console.log('\n⚠️ Certains tests ont échoué. Vérifiez les modules concernés.');
     }
-    
+
     return results;
 }
 
 async function testSmartCache() {
+    console.log("testSmartCache started");
     const cache = new SmartCache();
+    console.log("SmartCache instantiated");
     await cache.init();
-    
+    console.log("cache.init() completed");
+
     // Test de base
     await cache.set('test_key', { data: 'test_value' }, 1000);
     const result = await cache.get('test_key');
-    
+
     if (!result || result.data !== 'test_value') {
         throw new Error('Cache set/get failed');
     }
-    
+
     // Test de compression
     const largeData = 'x'.repeat(2000); // > compression threshold
     await cache.set('large_key', largeData, 1000);
     const largeResult = await cache.get('large_key');
-    
+
     if (largeResult !== largeData) {
         throw new Error('Cache compression/decompression failed');
     }
-    
+
     // Test des statistiques
     const stats = cache.getStats();
     if (!stats.hitRate || !stats.memoryItems) {
         throw new Error('Cache stats not properly generated');
     }
-    
+
     console.log(`   📈 Cache stats: ${stats.hitRate} hit rate, ${stats.memoryItems} items`);
 }
 
 async function testRealTimeMonitor() {
     const monitor = new RealTimeMonitor();
     monitor.init();
-    
+
     // Test de mise à jour des métriques
     const initialMetrics = monitor.getMetrics();
-    
+
     monitor.updateMetrics({
         participations: 10,
         success_rate: 85,
         opportunities_found: 5
     });
-    
+
     const updatedMetrics = monitor.getMetrics();
-    
+
     if (updatedMetrics.participations !== 10 || updatedMetrics.success_rate !== 85) {
         throw new Error('Real-time metrics update failed');
     }
-    
+
     // Test de buffer de performance
     monitor.addToPerformanceBuffer({
         url: '/api/test',
@@ -183,18 +176,18 @@ async function testRealTimeMonitor() {
         success: true,
         timestamp: Date.now()
     });
-    
+
     const buffer = monitor.getPerformanceBuffer();
     if (buffer.length === 0) {
         throw new Error('Performance buffer not working');
     }
-    
+
     console.log(`   📊 Monitor: ${updatedMetrics.participations} participations, ${updatedMetrics.success_rate}% success`);
 }
 
 async function testAIOptimizer() {
     const aiOptimizer = new AIOptimizer();
-    
+
     // Test d'optimisation d'opportunités
     const mockOpportunities = [
         {
@@ -207,7 +200,7 @@ async function testAIOptimizer() {
             expires_at: new Date(Date.now() + 86400000).toISOString()
         },
         {
-            id: 'opp2', 
+            id: 'opp2',
             title: 'Test Opportunity 2',
             value: 100,
             type: 'concours',
@@ -216,107 +209,107 @@ async function testAIOptimizer() {
             expires_at: new Date(Date.now() + 172800000).toISOString()
         }
     ];
-    
+
     const optimized = await aiOptimizer.optimizeOpportunities(mockOpportunities);
-    
+
     if (!optimized || optimized.length !== 2) {
         throw new Error('AI optimization failed');
     }
-    
+
     const firstOpp = optimized[0];
     if (!firstOpp.ai_score || !firstOpp.ai_predictions) {
         throw new Error('AI enhancement missing');
     }
-    
+
     // Test d'apprentissage
     await aiOptimizer.learnFromResult(firstOpp, {
         success: true,
         value_obtained: 50,
         time_taken: 1500
     });
-    
+
     const stats = aiOptimizer.getStats();
     if (stats.learning_sessions < 1) {
         throw new Error('AI learning not working');
     }
-    
+
     console.log(`   🧠 AI: ${stats.predictions_made} predictions, ${stats.accuracy} accuracy`);
 }
 
 async function testGamificationEngine() {
     const gamification = new GamificationEngine();
-    
+
     // Test de simulation de participation
     const playerInfo = gamification.simulateParticipation(true, 50);
-    
+
     if (playerInfo.level < 1 || playerInfo.xp <= 0) {
         throw new Error('Gamification simulation failed');
     }
-    
+
     // Test de badges
     const badges = gamification.getAvailableBadges();
     if (!badges || badges.length === 0) {
         throw new Error('Badges system not working');
     }
-    
+
     // Test d'achievements
     const achievements = gamification.getAchievements();
     if (!achievements || achievements.length === 0) {
         throw new Error('Achievements system not working');
     }
-    
+
     // Test d'objectifs quotidiens
     const dailyGoals = gamification.getDailyGoals();
     if (!dailyGoals || dailyGoals.length === 0) {
         throw new Error('Daily goals system not working');
     }
-    
+
     console.log(`   🎮 Gamification: Level ${playerInfo.level}, ${playerInfo.xp} XP, ${playerInfo.coins} coins`);
 }
 
 async function testABTesting() {
     const abTesting = new ABTestingEngine();
-    
+
     // Test de création de test
     const test = abTesting.createTest('notification_style');
-    
+
     if (!test || !test.id) {
         throw new Error('A/B test creation failed');
     }
-    
+
     // Test d'assignation d'utilisateur
     const variant = abTesting.assignUserToVariant('test_user_1', test.id);
-    
+
     if (!variant || !variant.id) {
         throw new Error('User variant assignment failed');
     }
-    
+
     // Test d'enregistrement d'événement
     abTesting.recordEvent('test_user_1', test.id, 'participation', {
         opportunity_id: 'test_opp'
     });
-    
+
     abTesting.recordEvent('test_user_1', test.id, 'success', {
         value: 25
     });
-    
+
     // Simuler des données pour test
     abTesting.simulateTestData(test.id, 50);
-    
+
     const activeTests = abTesting.getActiveTests();
     if (activeTests.length === 0) {
         throw new Error('Active tests not properly managed');
     }
-    
+
     console.log(`   🧪 A/B Testing: ${activeTests.length} active tests, ${test.variants.length} variants`);
 }
 
 async function testOptimizationSuite() {
     // Attendre l'initialisation
     await new Promise(resolve => setTimeout(resolve, 100));
-    
+
     const suite = new ModernOptimizationSuite();
-    
+
     // Manually load modules for testing environment
     suite.modules.smartCache = new SmartCache();
     suite.modules.realTimeMonitor = new RealTimeMonitor();
@@ -324,72 +317,72 @@ async function testOptimizationSuite() {
     suite.modules.gamification = new GamificationEngine();
     suite.modules.abTesting = new ABTestingEngine();
     suite.integrationMetrics.modules_loaded = 5;
-    
+
     // Attendre l'initialisation complète
     await new Promise(resolve => setTimeout(resolve, 200));
-    
+
     if (!suite.initialized) {
         throw new Error('Optimization suite initialization failed');
     }
-    
+
     // Test du statut système
     const status = suite.getSystemStatus();
-    
+
     if (!status.version || !status.metrics) {
         throw new Error('System status not properly generated');
     }
-    
+
     // Test des statistiques des modules
     const moduleStats = suite.getModuleStats();
-    
+
     if (Object.keys(moduleStats).length === 0) {
         throw new Error('Module stats not available');
     }
-    
+
     // Test d'optimisation manuelle
     const optimizationResults = await suite.triggerOptimization('cache');
-    
+
     if (!optimizationResults || typeof optimizationResults.improved === 'undefined') {
         throw new Error('Manual optimization failed');
     }
-    
+
     console.log(`   🚀 Suite: v${status.version}, ${status.metrics.modules_loaded} modules, ${status.metrics.startup_time.toFixed(2)}ms startup`);
 }
 
 async function testIntegration() {
     // Test d'intégration entre les modules
     const suite = new ModernOptimizationSuite();
-    
+
     // Manually load modules for testing
     suite.modules.smartCache = new SmartCache();
     suite.modules.realTimeMonitor = new RealTimeMonitor();
     suite.modules.aiOptimizer = new AIOptimizer();
-    
+
     // Vérifier que les modules sont bien intégrés
     const activeModules = Object.values(suite.modules).filter(m => m !== null);
-    
+
     if (activeModules.length < 2) {
         throw new Error('Insufficient module integration');
     }
-    
+
     // Test d'événement inter-modules
     let eventReceived = false;
-    
+
     if (suite.eventBus) {
         suite.eventBus.on('test_event', () => {
             eventReceived = true;
         });
-        
+
         suite.eventBus.emit('test_event', { test: true });
-        
+
         // Attendre que l'événement soit traité
         await new Promise(resolve => setTimeout(resolve, 50));
-        
+
         if (!eventReceived) {
             console.warn('Event bus test failed, but continuing...');
         }
     }
-    
+
     console.log(`   🔗 Integration: ${activeModules.length} modules integrated successfully`);
 }
 

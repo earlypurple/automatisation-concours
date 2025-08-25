@@ -7,7 +7,7 @@ import database as db
 from telegram_notifier import send_telegram_message
 import os
 from dotenv import load_dotenv
-import subprocess
+import requests
 from logger import logger
 from config_handler import config_handler
 
@@ -42,14 +42,16 @@ class SurveillanceUltraAvancee:
             return None
 
     def scrape_site_intelligent(self, site_key, site_config, profile_id):
-        """Scraping intelligent avec Puppeteer pour un profil donné."""
+        """Scraping intelligent avec le service de scraper pour un profil donné."""
         try:
-            # Passe la configuration globale et la configuration du site au script
-            result = subprocess.run(
-                ['node', 'js/puppeteer_scraper.js', site_key, json.dumps(site_config), json.dumps(self.config)],
-                capture_output=True, text=True, check=True, encoding='utf-8'
-            )
-            items = json.loads(result.stdout)
+            payload = {
+                'siteKey': site_key,
+                'siteConfig': site_config,
+                'config': self.config
+            }
+            response = requests.post('http://localhost:3000/scrape', json=payload, timeout=120)
+            response.raise_for_status()
+            items = response.json()
 
             for item in items:
                 value = self.parse_price(item.get('value')) or random.randint(5, 50)

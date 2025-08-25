@@ -15,7 +15,9 @@ function OpportunitiesGrid() {
           throw new Error('Network response was not ok');
         }
         const data = await response.json();
+        console.log("Data from API:", data);
         setOpportunities(data.opportunities);
+        console.log("Opportunities state updated:", data.opportunities);
         setLoading(false);
       } catch (error) {
         setError(error);

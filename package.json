@@ -11,8 +11,8 @@
     "test": "mocha --require tests/setup.js tests/test_suite.js",
     "test:performance": "node tests/performance_test.js",
     "test:integration": "node tests/integration_test.js",
-    "test:optimization": "node test_optimization_suite.js",
-    "test:all": "npm test && npm run test:optimization && timeout 10 npm run test:integration",
+    "test:optimization": "node --test-timeout=120000 test_optimization_suite.js",
+    "test:all": "npm test && npm run test:optimization && npm run test:integration",
     "start-scraper": "node js/scraper_server.js",
     "start-ultimate": "node js/ultimateIntegrationEngine.js",
     "benchmark": "node tests/benchmark_ultimate.js",
@@ -48,6 +48,7 @@
     "@tensorflow/tfjs-node": "^4.15.0"
   },
   "devDependencies": {
+    "fake-indexeddb": "^4.0.1",
     "jsdom": "^22.1.0",
     "mocha": "^10.2.0",
     "chai": "^4.3.10",

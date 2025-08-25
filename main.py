@@ -8,13 +8,11 @@ import schedule
 import os
 import joblib
 import redis
-from server import APIServer
 import selection_logic
 import train_model
 from logger import logger
 
 import email_handler
-import analytics
 import database as db
 
 # --- Gestion du Modèle d'IA ---
@@ -56,12 +54,11 @@ def trigger_scraping_job(r):
     r.publish('scraping_jobs', 'start_scraping')
 
 
-def run_scheduler(r):
+def run_scheduler(r, config):
     """Runs the scheduled tasks for scraping."""
-    # La configuration de l'intervalle est maintenant lue depuis config.json
-    # que le scraper utilisera aussi. C'est une simplification pour l'instant.
-    schedule.every(60).minutes.do(trigger_scraping_job, r=r)
-    logger.info("Planificateur de scraping démarré. Les jobs seront envoyés à Redis.")
+    interval = config.get('scraping', {}).get('interval_minutes', 60)
+    schedule.every(interval).minutes.do(trigger_scraping_job, r=r)
+    logger.info(f"Planificateur de scraping démarré. Intervalle : {interval} minutes.")
     while True:
         schedule.run_pending()
         time.sleep(1)
@@ -113,7 +110,7 @@ if __name__ == "__main__":
     trigger_scraping_job(redis_client)
 
     # 3. Démarrer les planificateurs dans des threads séparés
-    scraping_scheduler_thread = threading.Thread(target=run_scheduler, args=(redis_client,), daemon=True)
+    scraping_scheduler_thread = threading.Thread(target=run_scheduler, args=(redis_client, app_config), daemon=True)
     scraping_scheduler_thread.start()
 
     # Pour l'instant, on suppose que la config est lue depuis le fichier par les modules.
@@ -127,17 +124,8 @@ if __name__ == "__main__":
     training_scheduler_thread = threading.Thread(target=run_training_scheduler, args=(app_config,), daemon=True)
     training_scheduler_thread.start()
 
-    # 4. Démarrer le serveur d'API
-    def analytics_provider():
-        active_profile = db.get_active_profile()
-        profile_id = active_profile['id'] if active_profile else None
-        new_stats = analytics.get_analytics_data(profile_id)
-        # surv.stats n'existe plus, on se base sur les nouvelles stats
-        return new_stats
-
-    server = APIServer(
-        host=app_config.get('server', {}).get('host', '0.0.0.0'),
-        port=app_config.get('server', {}).get('port', 8080),
-        stats_provider=analytics_provider
-    )
-    server.run()
+    # Le serveur d'API est maintenant démarré via run.py avec Gunicorn
+    logger.info("Les services de l'application (planificateurs) sont démarrés.")
+    # Boucle infinie pour maintenir le conteneur en vie
+    while True:
+        time.sleep(3600)
