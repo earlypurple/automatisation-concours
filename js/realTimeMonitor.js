@@ -20,12 +20,27 @@ class RealTimeMonitor {
         this.performanceBuffer = [];
         this.maxBufferSize = 100;
         this.timersStarted = false; // Flag to prevent multiple timers
+        this.pollingInterval = null;
+        this.metricsInterval = null;
+        this.reconnectTimeout = null;
     }
 
     init() {
         this.connect();
         this.setupPerformanceTracking();
         this.startMetricsCollection();
+    }
+
+    destroy() {
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
+        }
+        if (this.metricsInterval) {
+            clearInterval(this.metricsInterval);
+        }
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+        }
     }
 
     connect() {
@@ -187,7 +202,7 @@ class RealTimeMonitor {
         this.timersStarted = true;
         
         // Polling fallback pour les environnements sans WebSocket
-        setInterval(async () => {
+        this.pollingInterval = setInterval(async () => {
             try {
                 // Skip API calls in Node.js test environment
                 if (typeof window === 'undefined') {
@@ -267,7 +282,7 @@ class RealTimeMonitor {
         this.timersStarted = true;
         
         // Collecte périodique des métriques système
-        setInterval(() => {
+        this.metricsInterval = setInterval(() => {
             this.collectSystemMetrics();
         }, 10000); // Toutes les 10 secondes
     }
@@ -375,7 +390,7 @@ class RealTimeMonitor {
             
             console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`);
             
-            setTimeout(() => {
+            this.reconnectTimeout = setTimeout(() => {
                 this.connect();
             }, delay);
         } else {

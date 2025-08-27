@@ -1,5 +1,6 @@
 import pytest
 from playwright.sync_api import sync_playwright, expect
+from intelligent_cache import api_cache
 import os
 import subprocess
 import time
@@ -14,6 +15,11 @@ import psutil
 BASE_URL = "http://localhost:3000"
 BACKEND_URL = "http://localhost:8080"
 
+@pytest.fixture(autouse=True)
+def clear_api_cache():
+    """Clears the API cache before each test."""
+    api_cache.clear()
+
 def wait_for_server(url, timeout=30):
     """Waits for a server to be ready."""
     start_time = time.time()
@@ -25,6 +31,14 @@ def wait_for_server(url, timeout=30):
             time.sleep(0.5)
     raise RuntimeError(f"Server at {url} did not start in {timeout} seconds.")
 
+def setup_test_database():
+    """Sets up the database for testing."""
+    if os.path.exists("surveillance.db"):
+        os.remove("surveillance.db")
+    subprocess.run(["alembic", "upgrade", "head"], check=True)
+    profile_id = database.create_profile(name="default", email="test@example.com", user_data={}, settings={})
+    database.set_active_profile(profile_id)
+
 @pytest.fixture(scope="module")
 def servers():
     """Starts the backend and frontend servers."""
@@ -34,6 +48,9 @@ def servers():
                 proc.kill()
             except psutil.NoSuchProcess:
                 pass
+
+    setup_test_database()
+
     # Start backend server
     backend_process = subprocess.Popen(
         ["python", "run.py"],
@@ -103,11 +120,6 @@ def test_filtering_and_sorting(page):
     # Add a dummy opportunity to the database for testing
     with database.db_session() as session:
         profile = database.get_active_profile()
-        if not profile:
-            profile_id = database.create_profile("test")
-            database.set_active_profile(profile_id)
-            profile = database.get_active_profile()
-
         opp = {
             'site': 'TestSite',
             'title': 'Test Opportunity',

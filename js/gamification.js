@@ -31,6 +31,8 @@ class GamificationEngine {
         this.challenges = new ChallengeSystem();
         
         this.init();
+        this.dailyResetTimeout = null;
+        this.dailyResetInterval = null;
     }
 
     init() {
@@ -41,6 +43,15 @@ class GamificationEngine {
         
         console.log('🎮 Gamification Engine initialized');
         console.log(`👤 Player Level ${this.player.level} | XP: ${this.player.xp} | Coins: ${this.player.coins}`);
+    }
+
+    destroy() {
+        if (this.dailyResetTimeout) {
+            clearTimeout(this.dailyResetTimeout);
+        }
+        if (this.dailyResetInterval) {
+            clearInterval(this.dailyResetInterval);
+        }
     }
 
     // === SYSTÈME DE NIVEAUX ET EXPÉRIENCE ===
@@ -618,10 +629,10 @@ class GamificationEngine {
         
         const timeUntilMidnight = midnight.getTime() - now.getTime();
         
-        setTimeout(() => {
+        this.dailyResetTimeout = setTimeout(() => {
             this.performDailyReset();
             // Programmer le prochain reset dans 24h
-            setInterval(() => this.performDailyReset(), 24 * 60 * 60 * 1000);
+            this.dailyResetInterval = setInterval(() => this.performDailyReset(), 24 * 60 * 60 * 1000);
         }, timeUntilMidnight);
     }
 
