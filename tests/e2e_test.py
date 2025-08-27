@@ -52,28 +52,35 @@ def servers():
     setup_test_database()
 
     # Start backend server
+    print("Starting backend server...")
     backend_process = subprocess.Popen(
         ["python", "run.py"],
         env={**os.environ, "PYTHONPATH": "."},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
+    print("Backend server started.")
 
     # Start frontend server
-    frontend_log = open("frontend.log", "w")
+    print("Starting frontend server...")
     frontend_process = subprocess.Popen(
         ["npm", "run", "dev"],
         cwd="frontend",
-        stdout=frontend_log,
-        stderr=frontend_log,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     )
+    print("Frontend server started.")
 
     try:
         wait_for_server(BACKEND_URL)
         wait_for_server(BASE_URL)
+        time.sleep(10) # Give servers time to settle
         yield
     finally:
         for proc in psutil.process_iter():
             if proc.name() == "node" or proc.name() == "vite" or proc.pid == backend_process.pid:
                 proc.kill()
+        print("Servers stopped.")
 
 @pytest.fixture(scope="module")
 def page(servers):
@@ -117,35 +124,61 @@ def test_filtering_and_sorting(page):
     """
     page.goto(BASE_URL)
 
-    # Add a dummy opportunity to the database for testing
+    # Add dummy opportunities to the database for testing
     with database.db_session() as session:
         profile = database.get_active_profile()
-        opp = {
+        opp1 = {
             'site': 'TestSite',
-            'title': 'Test Opportunity',
+            'title': 'Alpha Opportunity',
             'description': 'A test opportunity',
-            'url': 'http://example.com/opp',
+            'url': 'http://example.com/opp1',
             'type': 'test',
-            'priority': 1,
+            'priority': 2,
             'value': 100,
             'auto_fill': False,
             'detected_at': '2023-01-01T00:00:00',
             'expires_at': '2023-01-31T00:00:00',
             'entries_count': 10,
-            'time_left': '30 days'
+            'time_left': '30 days',
+            'score': 80
         }
-        database.add_opportunity(opp, profile['id'])
+        opp2 = {
+            'site': 'AnotherSite',
+            'title': 'Beta Opportunity',
+            'description': 'Another test opportunity',
+            'url': 'http://example.com/opp2',
+            'type': 'test',
+            'priority': 1,
+            'value': 200,
+            'auto_fill': False,
+            'detected_at': '2023-01-01T00:00:00',
+            'expires_at': '2023-01-31T00:00:00',
+            'entries_count': 20,
+            'time_left': '30 days',
+            'score': 90
+        }
+        database.add_opportunity(opp1, profile['id'])
+        database.add_opportunity(opp2, profile['id'])
 
     page.reload()
 
     # Wait for the grid to be populated
+    expect(page.locator(".opportunity-card")).to_have_count(2)
+
+    # Test filtering
+    page.fill("input[type='text']", "Alpha")
     expect(page.locator(".opportunity-card")).to_have_count(1)
+    expect(page.locator(".opportunity-card h3")).to_have_text("Alpha Opportunity")
+    page.fill("input[type='text']", "") # Clear filter
 
-    # Filtering is not implemented with a select, so this test is removed
-    # page.select_option("select[name='site-filter']", "TestSite")
-    # expect(page.locator(".ag-row")).to_have_count(1)
-    # expect(page.locator(".ag-row")).to_contain_text("TestSite")
+    # Test sorting by value
+    page.select_option("select", "value")
+    cards = page.locator(".opportunity-card").all()
+    expect(cards[0].locator("h3")).to_have_text("Beta Opportunity") # Higher value
+    expect(cards[1].locator("h3")).to_have_text("Alpha Opportunity")
 
-    # Sorting is not implemented with a button, so this test is removed
-    # page.click("button[name='sort-by-value']")
-    # expect(page.locator("h1")).to_have_text("Tableau de bord")
+    # Test sorting by priority
+    page.select_option("select", "priority")
+    cards = page.locator(".opportunity-card").all()
+    expect(cards[0].locator("h3")).to_have_text("Alpha Opportunity") # Higher priority
+    expect(cards[1].locator("h3")).to_have_text("Beta Opportunity")

@@ -12,3 +12,10 @@ surveillance_data.json
 surveillance.db
 __pycache__/
 .env
+
+# Log files
+*.log
+frontend.log
+frontend_dev.log
+backend.log
+server.log

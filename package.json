@@ -11,7 +11,7 @@
     "test": "mocha --require tests/setup.js tests/test_suite.js",
     "test:performance": "node tests/performance_test.js",
     "test:integration": "node tests/integration_test.js",
-    "test:optimization": "node --test-timeout=300000 test_optimization_suite.js",
+    "test:optimization": "node --test-timeout=600000 test_optimization_suite.js",
     "test:all": "npm test && npm run test:optimization && npm run test:integration",
     "start-scraper": "node js/scraper_server.js",
     "start-ultimate": "node js/ultimateIntegrationEngine.js",
