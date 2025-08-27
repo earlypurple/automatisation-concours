@@ -106,17 +106,16 @@ if __name__ == "__main__":
     redis_host = os.getenv('REDIS_HOST', 'localhost')
     redis_client = redis.Redis(host=redis_host, port=6379, db=0)
 
-    # 2. Lancer la surveillance initiale
-    trigger_scraping_job(redis_client)
-
-    # 3. Démarrer les planificateurs dans des threads séparés
-    scraping_scheduler_thread = threading.Thread(target=run_scheduler, args=(redis_client, app_config), daemon=True)
-    scraping_scheduler_thread.start()
-
-    # Pour l'instant, on suppose que la config est lue depuis le fichier par les modules.
-    # Dans une version plus avancée, on pourrait passer la config via Redis ou autre.
+    # 2. Charger la configuration
     import config_handler
     app_config = config_handler.load_config()
+
+    # 3. Lancer la surveillance initiale
+    trigger_scraping_job(redis_client)
+
+    # 4. Démarrer les planificateurs dans des threads séparés
+    scraping_scheduler_thread = threading.Thread(target=run_scheduler, args=(redis_client, app_config), daemon=True)
+    scraping_scheduler_thread.start()
 
     email_scheduler_thread = threading.Thread(target=run_email_scheduler, args=(app_config,), daemon=True)
     email_scheduler_thread.start()

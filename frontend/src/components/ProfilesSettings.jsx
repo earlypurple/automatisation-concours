@@ -63,7 +63,7 @@ function ProfilesSettings() {
     let userData;
     try {
       userData = JSON.parse(formData.user_data);
-    } catch (e) {
+    } catch {
       alert('Invalid JSON in user data.');
       return;
     }

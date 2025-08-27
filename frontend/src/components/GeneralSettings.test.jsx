@@ -6,16 +6,16 @@ import GeneralSettings from './GeneralSettings';
 import { vi } from 'vitest';
 
 // Mock the child components to isolate the GeneralSettings component
-vi.mock('./ScrapingSettings', () => () => <div>ScrapingSettings</div>);
-vi.mock('./ServerSettings', () => () => <div>ServerSettings</div>);
-vi.mock('./NotificationSettings', () => () => <div>NotificationSettings</div>);
-vi.mock('./FilterSettings', () => () => <div>FilterSettings</div>);
-vi.mock('./AutoParticipationSettings', () => () => <div>AutoParticipationSettings</div>);
-vi.mock('./PuppeteerSettings', () => () => <div>PuppeteerSettings</div>);
-vi.mock('./ProxiesSettings', () => () => <div>ProxiesSettings</div>);
-vi.mock('./CaptchaSolverSettings', () => () => <div>CaptchaSolverSettings</div>);
-vi.mock('./EmailHandlerSettings', () => () => <div>EmailHandlerSettings</div>);
-vi.mock('./ExportSettings', () => () => <div>ExportSettings</div>);
+vi.mock('./ScrapingSettings', () => ({ default: () => <div>ScrapingSettings</div> }));
+vi.mock('./ServerSettings', () => ({ default: () => <div>ServerSettings</div> }));
+vi.mock('./NotificationSettings', () => ({ default: () => <div>NotificationSettings</div> }));
+vi.mock('./FilterSettings', () => ({ default: () => <div>FilterSettings</div> }));
+vi.mock('./AutoParticipationSettings', () => ({ default: () => <div>AutoParticipationSettings</div> }));
+vi.mock('./PuppeteerSettings', () => ({ default: () => <div>PuppeteerSettings</div> }));
+vi.mock('./ProxiesSettings', () => ({ default: () => <div>ProxiesSettings</div> }));
+vi.mock('./CaptchaSolverSettings', () => ({ default: () => <div>CaptchaSolverSettings</div> }));
+vi.mock('./EmailHandlerSettings', () => ({ default: () => <div>EmailHandlerSettings</div> }));
+vi.mock('./ExportSettings', () => ({ default: () => <div>ExportSettings</div> }));
 
 
 describe('GeneralSettings', () => {
