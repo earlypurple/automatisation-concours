@@ -32,6 +32,8 @@ class SmartCache {
         this.compressionEngine = new CompressionEngine();
         
         this.init();
+        this.cleanupInterval = null;
+        this.predictiveInterval = null;
     }
 
     async init() {
@@ -49,6 +51,15 @@ class SmartCache {
         }
         
         console.log('🧠 Smart Cache initialized with multi-level storage');
+    }
+
+    destroy() {
+        if (this.cleanupInterval) {
+            clearInterval(this.cleanupInterval);
+        }
+        if (this.predictiveInterval) {
+            clearInterval(this.predictiveInterval);
+        }
     }
 
     async initIndexedDB() {
@@ -383,14 +394,14 @@ class SmartCache {
 
     initPredictiveLoading() {
         // Analyser les patterns d'accès périodiquement
-        setInterval(() => {
+        this.predictiveInterval = setInterval(() => {
             this.predictionModel.analyzePatterns(this.accessPatterns);
         }, 30000); // Toutes les 30 secondes
     }
 
     startAutoCleanup() {
         // Nettoyage automatique périodique
-        setInterval(() => {
+        this.cleanupInterval = setInterval(() => {
             this.cleanup();
         }, 5 * 60 * 1000); // Toutes les 5 minutes
     }

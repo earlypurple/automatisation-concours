@@ -45,6 +45,7 @@ class AIOptimizer {
         };
         
         this.init();
+        this.learningLoopInterval = null;
     }
 
     /**
@@ -56,6 +57,12 @@ class AIOptimizer {
         this.initializeModels();
         this.startLearningLoop();
         console.log('✨ AI Optimizer ready for intelligent opportunity optimization');
+    }
+
+    destroy() {
+        if (this.learningLoopInterval) {
+            clearInterval(this.learningLoopInterval);
+        }
     }
 
     async loadHistoricalData() {
@@ -413,7 +420,7 @@ class AIOptimizer {
         if (!this.auto_adapt) return;
         
         // Cycle d'apprentissage automatique
-        setInterval(() => {
+        this.learningLoopInterval = setInterval(() => {
             this.performAdaptiveLearning();
         }, 30 * 60 * 1000); // Toutes les 30 minutes
     }

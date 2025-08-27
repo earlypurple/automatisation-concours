@@ -55,6 +55,21 @@ class ModernOptimizationSuite {
         if (this.config.auto_start) {
             this.init();
         }
+        this.performanceMonitoringInterval = null;
+        this.continuousOptimizationInterval = null;
+        this.maintenanceRoutinesInterval = null;
+    }
+
+    destroy() {
+        if (this.performanceMonitoringInterval) {
+            clearInterval(this.performanceMonitoringInterval);
+        }
+        if (this.continuousOptimizationInterval) {
+            clearInterval(this.continuousOptimizationInterval);
+        }
+        if (this.maintenanceRoutinesInterval) {
+            clearInterval(this.maintenanceRoutinesInterval);
+        }
     }
 
     /**
@@ -222,20 +237,20 @@ class ModernOptimizationSuite {
     }
 
     startPerformanceMonitoring() {
-        setInterval(() => {
+        this.performanceMonitoringInterval = setInterval(() => {
             this.performanceTracker.collectMetrics();
             this.analyzePerformanceTrends();
         }, 60000); // Toutes les minutes
     }
 
     startContinuousOptimization() {
-        setInterval(async () => {
+        this.continuousOptimizationInterval = setInterval(async () => {
             await this.runOptimizationCycle();
         }, 15 * 60 * 1000); // Toutes les 15 minutes
     }
 
     startMaintenanceRoutines() {
-        setInterval(() => {
+        this.maintenanceRoutinesInterval = setInterval(() => {
             this.performMaintenance();
         }, 60 * 60 * 1000); // Toutes les heures
     }

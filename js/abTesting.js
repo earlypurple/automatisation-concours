@@ -34,6 +34,8 @@ class ABTestingEngine {
         this.statisticsEngine = new StatisticsEngine();
         
         this.init();
+        this.autoTestGenerationInterval = null;
+        this.resultsMonitoringInterval = null;
     }
 
     init() {
@@ -43,6 +45,15 @@ class ABTestingEngine {
         
         console.log('🧪 A/B Testing Engine initialized');
         console.log(`📊 ${this.activeTests.size} active tests, ${this.completedTests.length} completed`);
+    }
+
+    destroy() {
+        if (this.autoTestGenerationInterval) {
+            clearInterval(this.autoTestGenerationInterval);
+        }
+        if (this.resultsMonitoringInterval) {
+            clearInterval(this.resultsMonitoringInterval);
+        }
     }
 
     // === CRÉATION ET GESTION DES TESTS ===
@@ -350,7 +361,7 @@ class ABTestingEngine {
     
     startAutoTestGeneration() {
         // Génération automatique de nouveaux tests
-        setInterval(() => {
+        this.autoTestGenerationInterval = setInterval(() => {
             this.generateAutomaticTests();
         }, 24 * 60 * 60 * 1000); // Tous les jours
     }
@@ -411,7 +422,7 @@ class ABTestingEngine {
 
     startResultsMonitoring() {
         // Surveillance continue des résultats
-        setInterval(() => {
+        this.resultsMonitoringInterval = setInterval(() => {
             this.checkTestResults();
         }, 60 * 60 * 1000); // Toutes les heures
     }

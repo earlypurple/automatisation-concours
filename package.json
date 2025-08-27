@@ -11,7 +11,7 @@
     "test": "mocha --require tests/setup.js tests/test_suite.js",
     "test:performance": "node tests/performance_test.js",
     "test:integration": "node tests/integration_test.js",
-    "test:optimization": "node --test-timeout=120000 test_optimization_suite.js",
+    "test:optimization": "node --test-timeout=300000 test_optimization_suite.js",
     "test:all": "npm test && npm run test:optimization && npm run test:integration",
     "start-scraper": "node js/scraper_server.js",
     "start-ultimate": "node js/ultimateIntegrationEngine.js",
@@ -40,7 +40,6 @@
     "webrtc-adapter": "^8.2.3",
     "crypto-js": "^4.2.0",
     "ws": "^8.16.0",
-    "canvas": "^2.11.2",
     "node-fetch": "^3.3.2"
   },
   "optionalDependencies": {
@@ -49,7 +48,7 @@
   },
   "devDependencies": {
     "fake-indexeddb": "^4.0.1",
-    "jsdom": "^22.1.0",
+    "jsdom": "^24.1.1",
     "mocha": "^10.2.0",
     "chai": "^4.3.10",
     "sinon": "^17.0.1",

@@ -28,8 +28,8 @@ function OpportunitiesGrid() {
     fetchData();
   }, []);
 
-  const filteredAndSortedOpportunities = opportunities
-    .filter(opp => opp.title.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredAndSortedOpportunities = (opportunities || [])
+    .filter(opp => opp.title && opp.title.toLowerCase().includes(searchTerm.toLowerCase()))
     .sort((a, b) => {
       if (sortOrder === 'value') {
         return b.value - a.value;
