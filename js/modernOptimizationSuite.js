@@ -1,5 +1,7 @@
-// modernOptimizationSuite.js
-// Suite d'optimisation moderne intégrant tous les nouveaux systèmes
+/**
+ * @file modernOptimizationSuite.js
+ * @description A modern optimization suite that integrates various systems to improve application performance and user engagement.
+ */
 
 // Environment compatibility polyfills
 if (typeof performance === 'undefined') {
@@ -8,6 +10,10 @@ if (typeof performance === 'undefined') {
     };
 }
 
+/**
+ * @class ModernOptimizationSuite
+ * @description The main class for the optimization suite. It initializes and manages all the optimization modules.
+ */
 class ModernOptimizationSuite {
     constructor() {
         this.version = "4.1.0";
@@ -51,6 +57,10 @@ class ModernOptimizationSuite {
         }
     }
 
+    /**
+     * @description Initializes the optimization suite and all its modules.
+     * @returns {Promise<void>}
+     */
     async init() {
         const startTime = performance.now();
         console.log('🚀 Starting Modern Optimization Suite v' + this.version);
@@ -318,6 +328,10 @@ class ModernOptimizationSuite {
 
     // === CYCLES D'OPTIMISATION ===
     
+    /**
+     * @description Runs a full optimization cycle, including cache, AI, and gamification optimizations.
+     * @returns {Promise<Array<Object>>} A list of the improvements that were applied.
+     */
     async runOptimizationCycle() {
         this.integrationMetrics.optimization_cycles++;
         console.log(`🔄 Running optimization cycle #${this.integrationMetrics.optimization_cycles}`);
@@ -595,6 +609,10 @@ class ModernOptimizationSuite {
 
     // === API PUBLIQUE ===
     
+    /**
+     * @description Gets the current status of the optimization suite.
+     * @returns {Object} An object containing the system status, including version, initialization state, loaded modules, and performance metrics.
+     */
     getSystemStatus() {
         return {
             version: this.version,

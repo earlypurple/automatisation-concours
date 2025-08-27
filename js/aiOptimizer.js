@@ -1,6 +1,12 @@
-// aiOptimizer.js
-// Moteur d'optimisation IA pour la sélection et priorisation des opportunités
+/**
+ * @file aiOptimizer.js
+ * @description AI-powered optimization engine for opportunity selection and prioritization.
+ */
 
+/**
+ * @class AIOptimizer
+ * @description The main class for the AI optimizer. It uses several machine learning models to predict the success rate, priority, timing, and value of each opportunity.
+ */
 class AIOptimizer {
     constructor() {
         this.models = {
@@ -41,6 +47,9 @@ class AIOptimizer {
         this.init();
     }
 
+    /**
+     * @description Initializes the AI optimizer by loading historical data, initializing the models, and starting the learning loop.
+     */
     init() {
         console.log('🧠 AI Optimizer initializing...');
         this.loadHistoricalData();
@@ -80,6 +89,11 @@ class AIOptimizer {
         }
     }
 
+    /**
+     * @description Optimizes a list of opportunities by enhancing them with AI-powered predictions and sorting them by a composite score.
+     * @param {Array<Object>} opportunities - The list of opportunities to optimize.
+     * @returns {Promise<Array<Object>>} The list of optimized opportunities, sorted by their AI score.
+     */
     async optimizeOpportunities(opportunities) {
         console.log(`🎯 Optimizing ${opportunities.length} opportunities with AI...`);
         
@@ -100,6 +114,11 @@ class AIOptimizer {
         return optimizedOpportunities;
     }
 
+    /**
+     * @description Enhances a single opportunity with AI-powered predictions, a composite score, and recommendations.
+     * @param {Object} opportunity - The opportunity to enhance.
+     * @returns {Promise<Object>} The enhanced opportunity.
+     */
     async enhanceOpportunity(opportunity) {
         const features = this.extractFeatures(opportunity);
         
@@ -301,6 +320,12 @@ class AIOptimizer {
     }
 
     // Méthodes d'apprentissage et d'adaptation
+    /**
+     * @description Updates the AI models with the result of a participation attempt.
+     * @param {Object} opportunity - The opportunity that was acted upon.
+     * @param {Object} result - The result of the participation attempt.
+     * @returns {Promise<void>}
+     */
     async learnFromResult(opportunity, result) {
         if (!this.learning_enabled) return;
         

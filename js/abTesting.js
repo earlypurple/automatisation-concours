@@ -1,6 +1,12 @@
-// abTesting.js
-// Système de tests A/B automatique pour l'optimisation continue
+/**
+ * @file abTesting.js
+ * @description An automatic A/B testing system for continuous optimization.
+ */
 
+/**
+ * @class ABTestingEngine
+ * @description The main class for the A/B testing engine. It allows to create, manage, and analyze A/B tests.
+ */
 class ABTestingEngine {
     constructor() {
         this.activeTests = new Map();
@@ -115,6 +121,12 @@ class ABTestingEngine {
         };
     }
 
+    /**
+     * @description Creates a new A/B test from a template.
+     * @param {string} templateId - The ID of the test template to use.
+     * @param {Object} customConfig - An object with custom configuration for the test.
+     * @returns {Object|null} The created test object, or null if the test could not be created.
+     */
     createTest(templateId, customConfig = {}) {
         const template = this.testTemplates[templateId];
         if (!template) {
@@ -178,6 +190,12 @@ class ABTestingEngine {
 
     // === ASSIGNATION ET PARTICIPATION ===
     
+    /**
+     * @description Assigns a user to a variant of a test.
+     * @param {string} userId - The ID of the user to assign.
+     * @param {string} testId - The ID of the test to assign the user to.
+     * @returns {Object|null} The variant object the user was assigned to, or null if the user could not be assigned.
+     */
     assignUserToVariant(userId, testId) {
         const test = this.activeTests.get(testId);
         if (!test || test.status !== 'running') {
@@ -416,6 +434,10 @@ class ABTestingEngine {
                test.statistical_significance.effect_size > 0.2; // Effet important
     }
 
+    /**
+     * @description Ends a test, analyzes the results, and implements the winner if auto-winner selection is enabled.
+     * @param {string} testId - The ID of the test to end.
+     */
     endTest(testId) {
         const test = this.activeTests.get(testId);
         if (!test) return;

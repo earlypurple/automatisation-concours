@@ -1,6 +1,12 @@
-// improvementAnalyzer.js
-// Module d'analyse des améliorations possibles
+/**
+ * @file improvementAnalyzer.js
+ * @description A module for analyzing the current state of the application and suggesting improvements.
+ */
 
+/**
+ * @class ImprovementAnalyzer
+ * @description The main class for the improvement analyzer. It checks for critical issues, performance bottlenecks, missing features, code quality problems, and security vulnerabilities.
+ */
 class ImprovementAnalyzer {
     constructor() {
         this.analytics = null;
@@ -13,6 +19,10 @@ class ImprovementAnalyzer {
         this.autoParticipation = autoParticipation;
     }
 
+    /**
+     * @description Analyzes the current state of the application and returns a detailed analysis report.
+     * @returns {Promise<Object>} An object containing the analysis report.
+     */
     async analyzeCurrentState() {
         const analysis = {
             timestamp: new Date().toISOString(),
@@ -298,6 +308,11 @@ class ImprovementAnalyzer {
         return totalItems > 0 ? Math.round(totalScore / totalItems) : 0;
     }
 
+    /**
+     * @description Generates an improvement plan based on the analysis report.
+     * @param {Object} analysis - The analysis report.
+     * @returns {Object} An object containing the improvement plan.
+     */
     generateImprovementPlan(analysis) {
         const plan = {
             summary: `Plan d'amélioration - Score de priorité: ${analysis.priorityScore}/10`,
@@ -348,6 +363,11 @@ class ImprovementAnalyzer {
         return effortMap[effort] || 2;
     }
 
+    /**
+     * @description Generates a human-readable report from the analysis.
+     * @param {Object} analysis - The analysis report.
+     * @returns {string} A string containing the human-readable report in Markdown format.
+     */
     generateReport(analysis) {
         const plan = this.generateImprovementPlan(analysis);
         

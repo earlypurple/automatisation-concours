@@ -2105,3 +2105,39 @@
 2025-08-25 00:34:26 - AppLogger - INFO - API GET request for path: /api/data
 2025-08-25 00:34:26 - AppLogger - INFO - Checking pattern: /api/data$
 2025-08-25 00:34:26 - AppLogger - INFO - Matched pattern: /api/data$, executing handler.
+2025-08-26 21:43:44 - AppLogger - INFO - Cache: Aucun fichier de persistance trouvé
+2025-08-26 21:43:44 - AppLogger - INFO - Cache: Aucun fichier de persistance trouvé
+2025-08-26 21:43:44 - AppLogger - INFO - Cache: Aucun fichier de persistance trouvé
+2025-08-26 21:50:53 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-26 21:50:53 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-26 21:50:53 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-26 21:58:07 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-26 21:58:07 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-26 21:58:07 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-26 22:05:29 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-26 22:05:29 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-26 22:05:29 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 04:58:51 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 04:58:51 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 04:58:51 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:06:39 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:13:37 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:13:37 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:13:37 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:27:56 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:27:56 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:27:56 - AppLogger - INFO - Cache: Chargé 0 entrées depuis la persistance
+2025-08-27 05:27:57 - AppLogger - INFO - 🤖 Le travailleur de participation est démarré.
+2025-08-27 05:27:57 - AppLogger - INFO - 🌐 Serveur sur http://localhost:8080
+2025-08-27 05:27:58 - AppLogger - INFO - Handler initialized

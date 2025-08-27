@@ -85,7 +85,7 @@
             "url": "https://shopmium.com/fr/",
             "type": "cashback",
             "priority": 4,
-            "auto_fill": false,.
+            "auto_fill": false,
             "selectors": {
                 "offer": ".offer-item",
                 "title": ".offer-title",
